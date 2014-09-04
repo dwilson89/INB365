@@ -170,6 +170,7 @@ void *AirportArrival(){
 				printf("DEBUG: Plane %s parked in landing bay %d", landingBay);
 				newPlane->parkTime = time(NULL);
 				airport[landingBay] = newPlane;
+				currentAirportCapacity++;
 
 			}
 			// Free up runway
