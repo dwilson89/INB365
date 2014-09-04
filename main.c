@@ -57,7 +57,7 @@ void *UserControls(){
 
 	// TODO: Add Code
 
-	pthread_exit(NULL);
+	//pthread_exit(NULL);
 }
 
 char *CreateAirplaneCode(){
@@ -109,12 +109,35 @@ int IsPlaneGenerated(){
 	return isGenerated;
 }
 
+int AssignLandingBay(){
+
+	int isBayFull = 1;
+
+	int ranNum = 0;
+	
+
+	do{
+		
+		ranNum = 10 * (rand() / (RAND_MAX + 1.0));
+		if(airport[ranNum] == NULL){
+
+			isBayFull = 0;
+		}
+
+	} while(isBayFull);
+
+	return ranNum;
+
+}
+
 // Producer
 void *AirportArrival(){
 
 	printf("DEBUG: Airport Arrival Started\n");
 
-	// TODO: Add Code
+	// TODO: Add Code for semaphore and mutexes
+
+	int landingBay;
 
 	while(keep_running){
 
@@ -134,25 +157,28 @@ void *AirportArrival(){
 			if(IsPlaneGenerated()){
 
 			// Create a new plane	
-
+				struct Airplane newPlane;
+				newPlane->code = CreateAirplaneCode();
 			// if landing printf("DEBUG: Plane %s is landing", newPlane.code);
-
+				printf("DEBUG: Plane %s is landing", newPlane.code);
 			// Sleep for 2 seconds? or just assign current time? Time for landing
-
+				sleep(2000);
 			// Need to randomly generate a empty landing bay number
-
-			// assign landing bay
+				landingBay = AssignLandingBay();
 
 			// if landed printf("DEBUG: Plane %s parked in landing bay %d", assignedBay);
-				
+				printf("DEBUG: Plane %s parked in landing bay %d", landingBay);
+				newPlane->parkTime = time(NULL);
+				airport[landingBay] = newPlane;
+
 			}
-		// Free up runway
-		isRunwayFree = TRUE;
+			// Free up runway
+			isRunwayFree = TRUE;
 		}
 
 	}
 	
-	pthread_exit(NULL);
+	//pthread_exit(NULL);
 }
 
 
@@ -163,7 +189,7 @@ void *AirportDepart(){
 
 	// TODO: Add Code
 
-	pthread_exit(NULL);
+	//pthread_exit(NULL);
 }
 
 
@@ -209,8 +235,11 @@ int main(int argc, char *argv[]){
 		exit(-1);
 	}
 
+	pthread_join(threads[0],NULL);
+	pthread_join(threads[1],NULL);
+	pthread_join(threads[2],NULL);
 
-	pthread_exit(NULL);
+	//pthread_exit(NULL);
 
 	return 0;
 
