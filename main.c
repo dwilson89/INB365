@@ -14,6 +14,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <unistd.h>
 
 #define MAXIMUM_AIRPORT_CAPACITY 10
 #define AIRPLANE_CODE 6
@@ -57,6 +58,8 @@ void *UserControls(){
 
 	//pthread_exit(NULL);
 }
+
+
 
 // Creates an random 6 character code for the generated airplane 2 capital 
 // letters and 4 numerical values
@@ -174,6 +177,8 @@ void *AirportArrival(){
 
 	printf("DEBUG: Airport Arrival Started\n");
 
+	
+
 	// TODO: Add Code for semaphore and mutexes
 
 	// Keeps track of airport capacity
@@ -195,7 +200,7 @@ void *AirportArrival(){
 			}
 			// Free up runway
 			isRunwayFree = TRUE;
-		}*/
+		}
 
 			// Acquire Empty and Runway Semaphore
 			sem_wait(&empty); // This should block if 0 or full
@@ -231,9 +236,13 @@ int IsPlaneDeparting(){
 // Calculates the terminal/dock from which the plane will depart
 int CalculateDepartureDock(){
 
-	int terminalsUsed[currentAirportCapacity];
+	
 	int j = 0;
 	int ranNum = 0;
+	int numberFree = 0;
+	int currentAirportCapacity = sem_getvalue(&empty, &numberFree);
+	
+	int terminalsUsed[currentAirportCapacity];
 
 	for(int i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
 		if (airport[i] != NULL){
@@ -262,27 +271,43 @@ void *AirportDepart(){
 	printf("DEBUG: Airport Depart Started\n");
 
 	while(keep_running){
-		if(currentAirportCapacity == 0){
-			printf("The airport is empty");
+		int numberFree = 0;
+		int currentAirportCapacity = sem_getvalue(&empty, &numberFree);
 
-			while(currentAirportCapacity == 0){
-				// Blocking
+		if(IsPlaneDeparting()){
+
+			int semValue = 0;
+
+			
+
+			if(sem_getvalue(&full, &semValue) == 0){
+				printf("The airport is empty\n");
 			}
-		}
-
-		if(isRunwayFree && IsPlaneDeparting()){
+			sem_wait(&full);
+			sem_wait(&runway);
 
 			int departureDock = CalculateDepartureDock();
+
 			struct Airplane* selectedPlane;
 			selectedPlane = airport[departureDock];
-			printf("After staying at bay %d for %f seconds, plane %s is taking off...", departureDock, GetStayTime(departureDock), selectedPlane->code); 
-			isRunwayFree = FALSE;
+
+			printf("After staying at bay %d for %f seconds, plane %s is taking off...\n", departureDock, GetStayTime(departureDock), selectedPlane->code); 
 			sleep(2);
-			printf("Plane %s has finished taking off", selectedPlane->code);
+			printf("Plane %s has finished taking off\n", selectedPlane->code);
+			
+			//Acquire mutex lock to protect airport
+			pthread_mutex_lock(&airport_mutex);
+
 			free(airport[departureDock]);
 			airport[departureDock] = NULL;
-			isRunwayFree = TRUE;			
+
+			// Release mutex lock and Full Semaphore
+			pthread_mutex_unlock(&airport_mutex);
+
+			sem_post(&runway);
+			sem_post(&empty);			
 		}
+		
 
 		sleep(0.5);
 
