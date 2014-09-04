@@ -35,11 +35,6 @@ struct Airplane *airport[MAXIMUM_AIRPORT_CAPACITY];
 int arrivalOdds = 0;
 int departureOdds = 0;
 
-// Variable to determine if run way is free or occupied; has true for free, 
-// false for occupied - shared resource
-//bool isRunwayFree = true;
-int isRunwayFree = TRUE;
-
 int keep_running = 1;
 
 pthread_mutex_t airport_mutex;
@@ -63,6 +58,8 @@ void *UserControls(){
 	//pthread_exit(NULL);
 }
 
+// Creates an random 6 character code for the generated airplane 2 capital 
+// letters and 4 numerical values
 char *CreateAirplaneCode(){
 
 	int ranNum = 0;
@@ -93,6 +90,7 @@ char *CreateAirplaneCode(){
 	return code;
 }
 
+// Checks if a new plane is to be generated
 int IsPlaneGenerated(){
 
 	int ranNum = 0;
@@ -110,33 +108,42 @@ int IsPlaneGenerated(){
 	return isGenerated;
 }
 
+// Randomly Assigns a empty landing bay for the landed airplane
 int AssignLandingBay(){
 
 	int isBayFull = 1;
-
 	int ranNum = 0;
+	int numberFree = 0;
+
+	//get the number of free bays left
+	sem_getvalue(&empty, &numberFree);
+
+	int freeSpots[numberFree];
 	
+	int i; // Index for airport
+	int counter = 0; // Index for freeSpots
+	
+	// Go through the airport array looking for empty bays
+	for(i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
 
-	do{
-		
-		ranNum = 10 * (rand() / (RAND_MAX + 1.0));
-		if(airport[ranNum] == NULL){
+		if(airport[i] == NULL){
 
-			isBayFull = 0;
+			freeSpots[counter] = i;
+			counter++;
 		}
+	}
 
-	} while(isBayFull);
+	// Generate a random index in freespots
+	ranNum = numberFree * (rand() / (RAND_MAX + 1.0));
 
-	return ranNum;
+	// Return the value at the random index value
+	return freeSpots[ranNum];
 
 }
 
 void generate_airplane(){
 
 	int landingBay;
-
-	// Acquire Empty Semaphore
-	sem_wait(&empty);
 
 	// Create a new plane	
 	struct Airplane newPlane;
@@ -159,8 +166,6 @@ void generate_airplane(){
 	
 	// Release mutex lock and Full Semaphore
 	pthread_mutex_unlock(&airport_mutex);
-	sem_post(&full);
-	
 
 }
 
@@ -179,24 +184,25 @@ void *AirportArrival(){
 		// Get the current count for the full semaphore to indicate airport capacity
 		sem_getvalue(&full, &currentAirportCapacity);
 
-		// Possibly a loop that keeps it here until room - blocking
-		if (currentAirportCapacity == MAXIMUM_AIRPORT_CAPACITY){
-			printf("DEBUG: The airport is full");
-		}
-
 		sleep(500);
 
 		// Is a new plane to be generated
 		if(IsPlaneGenerated()){
 			
-			// Acquire Runway Semaphore
+			// Report to console if Airport is full
+			if (currentAirportCapacity == MAXIMUM_AIRPORT_CAPACITY){
+				printf("DEBUG: The airport is full");
+			}
+
+			// Acquire Empty and Runway Semaphore
+			sem_wait(&empty); // This should block if 0 or full
 			sem_wait(&runway);
 			
 			generate_airplane();
 			
-			// Release Runway Semaphore
+			// Release Full and Runway Semaphore
 			sem_post(&runway);
-		
+			sem_post(&full);
 		}
 	}
 }
