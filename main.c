@@ -130,6 +130,40 @@ int AssignLandingBay(){
 
 }
 
+void generate_airplane(){
+
+	int landingBay;
+
+	// check the Runway - might need to swap this around
+	if(isRunwayFree){
+		
+		isRunwayFree = FALSE;
+		// Is a new plane to be generated
+		if(IsPlaneGenerated()){
+
+		// Create a new plane	
+			struct Airplane newPlane;
+			newPlane->code = CreateAirplaneCode();
+		// if landing printf("DEBUG: Plane %s is landing", newPlane.code);
+			printf("DEBUG: Plane %s is landing", newPlane->code);
+		// Sleep for 2 seconds? or just assign current time? Time for landing
+			sleep(2000);
+		// Need to randomly generate a empty landing bay number
+			landingBay = AssignLandingBay();
+
+		// if landed printf("DEBUG: Plane %s parked in landing bay %d", assignedBay);
+			printf("DEBUG: Plane %s parked in landing bay %d",newPlane->code, landingBay);
+			newPlane->parkTime = time(NULL);
+			airport[landingBay] = newPlane;
+			currentAirportCapacity++;
+
+		}
+		// Free up runway
+		isRunwayFree = TRUE;
+	}
+
+}
+
 // Producer
 void *AirportArrival(){
 
@@ -149,7 +183,7 @@ void *AirportArrival(){
 
 		sleep(500);
 		
-		// check the Runway - might need to swap this around
+/*		// check the Runway - might need to swap this around
 		if(isRunwayFree){
 			
 			isRunwayFree = FALSE;
@@ -160,14 +194,14 @@ void *AirportArrival(){
 				struct Airplane newPlane;
 				newPlane->code = CreateAirplaneCode();
 			// if landing printf("DEBUG: Plane %s is landing", newPlane.code);
-				printf("DEBUG: Plane %s is landing", newPlane.code);
+				printf("DEBUG: Plane %s is landing", newPlane->code);
 			// Sleep for 2 seconds? or just assign current time? Time for landing
 				sleep(2000);
 			// Need to randomly generate a empty landing bay number
 				landingBay = AssignLandingBay();
 
 			// if landed printf("DEBUG: Plane %s parked in landing bay %d", assignedBay);
-				printf("DEBUG: Plane %s parked in landing bay %d", landingBay);
+				printf("DEBUG: Plane %s parked in landing bay %d",newPlane->code, landingBay);
 				newPlane->parkTime = time(NULL);
 				airport[landingBay] = newPlane;
 				currentAirportCapacity++;
@@ -175,7 +209,9 @@ void *AirportArrival(){
 			}
 			// Free up runway
 			isRunwayFree = TRUE;
-		}
+		}*/
+
+		generate_airplane();
 
 	}
 	
