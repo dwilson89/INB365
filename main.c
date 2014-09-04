@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #define MAXIMUM_AIRPORT_CAPACITY 10
 #define AIRPLANE_CODE 6
@@ -60,15 +61,17 @@ void *UserControls(){
 	//pthread_exit(NULL);
 }
 
+/*
 char *CreateAirplaneCode(){
 
 	int ranNum = 0;
 	int counter = 0;
 
 	//ASCII for 'A' is 65, '0' is 48
-	char code[AIRPLANE_CODE];
+	char code[6];
+
 	for(int i = 0; i < AIRPLANE_CODE; i++){
-		airport[i] = malloc(sizeof(char));
+		code[i] = malloc(sizeof(char));
 	}
 
 	while (counter < AIRPLANE_CODE){
@@ -109,6 +112,8 @@ int IsPlaneGenerated(){
 	return isGenerated;
 }
 
+
+
 int AssignLandingBay(){
 
 	int isBayFull = 1;
@@ -120,7 +125,6 @@ int AssignLandingBay(){
 		
 		ranNum = 10 * (rand() / (RAND_MAX + 1.0));
 		if(airport[ranNum] == NULL){
-
 			isBayFull = 0;
 		}
 
@@ -129,9 +133,9 @@ int AssignLandingBay(){
 	return ranNum;
 
 }
-
+*/
 void generate_airplane(){
-
+/*
 	int landingBay;
 
 	// check the Runway - might need to swap this around
@@ -143,17 +147,17 @@ void generate_airplane(){
 
 		// Create a new plane	
 			struct Airplane newPlane;
-			newPlane->code = CreateAirplaneCode();
+			newPlane.code = CreateAirplaneCode();
 		// if landing printf("DEBUG: Plane %s is landing", newPlane.code);
-			printf("DEBUG: Plane %s is landing", newPlane->code);
+			printf("DEBUG: Plane %s is landing", newPlane.code);
 		// Sleep for 2 seconds? or just assign current time? Time for landing
 			sleep(2000);
 		// Need to randomly generate a empty landing bay number
 			landingBay = AssignLandingBay();
 
 		// if landed printf("DEBUG: Plane %s parked in landing bay %d", assignedBay);
-			printf("DEBUG: Plane %s parked in landing bay %d",newPlane->code, landingBay);
-			newPlane->parkTime = time(NULL);
+			printf("DEBUG: Plane %s parked in landing bay %d",newPlane.code, landingBay);
+			newPlane.parkTime = time(NULL);
 			airport[landingBay] = newPlane;
 			currentAirportCapacity++;
 
@@ -161,11 +165,12 @@ void generate_airplane(){
 		// Free up runway
 		isRunwayFree = TRUE;
 	}
-
+*/
 }
 
 // Producer
 void *AirportArrival(){
+	/*
 
 	printf("DEBUG: Airport Arrival Started\n");
 
@@ -209,13 +214,56 @@ void *AirportArrival(){
 			}
 			// Free up runway
 			isRunwayFree = TRUE;
-		}*/
+		}
 
 		generate_airplane();
 
 	}
+	*/
+}
+
+// Function to determine whether a plane should be departing or not
+
+int IsPlaneDeparting(){
+	int ranNum	= 0;
+
+	// Calculate a number between 0 and 100
+	ranNum = 100 * (rand()/(RAND_MAX + 1.0));
+
+	// If value is in departureOdds range 0 - departureOdds, then a plan should depart
+	if(ranNum < departureOdds){
+		return 1;
+	}
 	
-	//pthread_exit(NULL);
+	return 0;	
+}
+
+
+// Calculates the terminal/dock from which the plane will depart
+int CalculateDepartureDock(){
+
+	int terminalsUsed[currentAirportCapacity];
+	int j = 0;
+	int ranNum = 0;
+
+	for(int i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
+		if (airport[i] != NULL){
+			terminalsUsed[j] = i;
+			j++;
+		}
+	}
+
+	ranNum = currentAirportCapacity * (rand() / (RAND_MAX + 1.0));
+	return ranNum;
+}
+
+
+// Calculates how long a plane has been parked
+double GetStayTime(int dock){
+	double timeTaken = 0;
+	struct Airplane* currentPlane = airport[dock];
+
+	return difftime(time(NULL), currentPlane->parkTime);
 }
 
 
@@ -224,9 +272,32 @@ void *AirportDepart(){
 
 	printf("DEBUG: Airport Depart Started\n");
 
-	// TODO: Add Code
+	while(keep_running){
+		if(currentAirportCapacity == 0){
+			printf("The airport is empty");
 
-	//pthread_exit(NULL);
+			while(currentAirportCapacity == 0){
+				// Blocking
+			}
+		}
+
+		if(isRunwayFree && IsPlaneDeparting()){
+
+			int departureDock = CalculateDepartureDock();
+			struct Airplane* selectedPlane;
+			selectedPlane = airport[departureDock];
+			printf("After staying at bay %d for %f seconds, plane %s is taking off...", departureDock, GetStayTime(departureDock), selectedPlane->code); 
+			isRunwayFree = FALSE;
+			sleep(2);
+			printf("Plane %s has finished taking off", selectedPlane->code);
+			free(airport[departureDock]);
+			airport[departureDock] = NULL;
+			isRunwayFree = TRUE;			
+		}
+
+		sleep(0.5);
+
+	}
 }
 
 
@@ -275,8 +346,6 @@ int main(int argc, char *argv[]){
 	pthread_join(threads[0],NULL);
 	pthread_join(threads[1],NULL);
 	pthread_join(threads[2],NULL);
-
-	//pthread_exit(NULL);
 
 	return 0;
 
