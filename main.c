@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <pthread.h>
-#include <unistd.h>
+#include <semaphore.h>
 
 #define MAXIMUM_AIRPORT_CAPACITY 10
 #define AIRPLANE_CODE 6
@@ -24,7 +24,7 @@
 
 // Struct to represent a single Airplane
 struct Airplane{
-	char code[AIRPLANE_CODE];
+	char *code;
 	time_t parkTime;
 };
 
@@ -35,15 +35,12 @@ struct Airplane *airport[MAXIMUM_AIRPORT_CAPACITY];
 int arrivalOdds = 0;
 int departureOdds = 0;
 
-// Variable to determine if run way is free or occupied; has true for free, 
-// false for occupied - shared resource
-//bool isRunwayFree = true;
-int isRunwayFree = TRUE;
-
-// Keeps track of airport capacity
-int currentAirportCapacity = 0;
-
 int keep_running = 1;
+
+pthread_mutex_t airport_mutex;
+sem_t empty;
+sem_t full;
+sem_t runway;
 
 // Function to allocate memory for each Airplane in the airport
 void InitialiseAirport(){
@@ -61,18 +58,16 @@ void *UserControls(){
 	//pthread_exit(NULL);
 }
 
-/*
+// Creates an random 6 character code for the generated airplane 2 capital 
+// letters and 4 numerical values
 char *CreateAirplaneCode(){
 
 	int ranNum = 0;
 	int counter = 0;
 
 	//ASCII for 'A' is 65, '0' is 48
-	char code[6];
-
-	for(int i = 0; i < AIRPLANE_CODE; i++){
-		code[i] = malloc(sizeof(char));
-	}
+	char *code;
+	code = malloc(AIRPLANE_CODE*sizeof(char));
 
 	while (counter < AIRPLANE_CODE){
 
@@ -95,6 +90,7 @@ char *CreateAirplaneCode(){
 	return code;
 }
 
+// Checks if a new plane is to be generated
 int IsPlaneGenerated(){
 
 	int ranNum = 0;
@@ -112,114 +108,108 @@ int IsPlaneGenerated(){
 	return isGenerated;
 }
 
-
-
+// Randomly Assigns a empty landing bay for the landed airplane
 int AssignLandingBay(){
 
 	int isBayFull = 1;
-
 	int ranNum = 0;
+	int numberFree = 0;
+
+	//get the number of free bays left
+	sem_getvalue(&empty, &numberFree);
+
+	int freeSpots[numberFree];
 	
+	int i; // Index for airport
+	int counter = 0; // Index for freeSpots
+	
+	// Go through the airport array looking for empty bays
+	for(i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
 
-	do{
-		
-		ranNum = 10 * (rand() / (RAND_MAX + 1.0));
-		if(airport[ranNum] == NULL){
-			isBayFull = 0;
+		if(airport[i] == NULL){
+
+			freeSpots[counter] = i;
+			counter++;
 		}
+	}
 
-	} while(isBayFull);
+	// Generate a random index in freespots
+	ranNum = numberFree * (rand() / (RAND_MAX + 1.0));
 
-	return ranNum;
+	// Return the value at the random index value
+	return freeSpots[ranNum];
 
 }
-*/
+
 void generate_airplane(){
-/*
+
 	int landingBay;
 
-	// check the Runway - might need to swap this around
-	if(isRunwayFree){
-		
-		isRunwayFree = FALSE;
-		// Is a new plane to be generated
-		if(IsPlaneGenerated()){
+	// Create a new plane	
+	struct Airplane newPlane;
+	newPlane.code = CreateAirplaneCode();
+	// if landing printf("DEBUG: Plane %s is landing", newPlane.code);
+	printf("DEBUG: Plane %s is landing", newPlane.code);
+	// Sleep for 2 seconds? or just assign current time? Time for landing
+	sleep(2000);
 
-		// Create a new plane	
-			struct Airplane newPlane;
-			newPlane.code = CreateAirplaneCode();
-		// if landing printf("DEBUG: Plane %s is landing", newPlane.code);
-			printf("DEBUG: Plane %s is landing", newPlane.code);
-		// Sleep for 2 seconds? or just assign current time? Time for landing
-			sleep(2000);
-		// Need to randomly generate a empty landing bay number
-			landingBay = AssignLandingBay();
+	//Acquire mutex lock to protect airport
+	pthread_mutex_lock(&airport_mutex);
 
-		// if landed printf("DEBUG: Plane %s parked in landing bay %d", assignedBay);
-			printf("DEBUG: Plane %s parked in landing bay %d",newPlane.code, landingBay);
-			newPlane.parkTime = time(NULL);
-			airport[landingBay] = newPlane;
-			currentAirportCapacity++;
+	// Need to randomly generate a empty landing bay number
+	landingBay = AssignLandingBay();
 
-		}
-		// Free up runway
-		isRunwayFree = TRUE;
-	}
-*/
+	// if landed printf("DEBUG: Plane %s parked in landing bay %d", assignedBay);
+	printf("DEBUG: Plane %s parked in landing bay %d",newPlane.code, landingBay);
+	newPlane->parkTime = time(NULL);
+	airport[landingBay] = newPlane;
+	
+	// Release mutex lock and Full Semaphore
+	pthread_mutex_unlock(&airport_mutex);
+
 }
 
 // Producer
 void *AirportArrival(){
-	/*
 
 	printf("DEBUG: Airport Arrival Started\n");
 
 	// TODO: Add Code for semaphore and mutexes
 
-	int landingBay;
+	// Keeps track of airport capacity
+	int currentAirportCapacity = 0;
 
 	while(keep_running){
 
-		// Possibly a loop that keeps it here until room - blocking
-		while(currentAirportCapacity == MAXIMUM_AIRPORT_CAPACITY){
-			printf("DEBUG: The airport is full");
-			sleep(1);
-		}
+		// Get the current count for the full semaphore to indicate airport capacity
+		sem_getvalue(&full, &currentAirportCapacity);
 
 		sleep(500);
-		
-/*		// check the Runway - might need to swap this around
-		if(isRunwayFree){
+
+		// Is a new plane to be generated
+		if(IsPlaneGenerated()){
 			
-			isRunwayFree = FALSE;
-			// Is a new plane to be generated
-			if(IsPlaneGenerated()){
-
-			// Create a new plane	
-				struct Airplane newPlane;
-				newPlane->code = CreateAirplaneCode();
-			// if landing printf("DEBUG: Plane %s is landing", newPlane.code);
-				printf("DEBUG: Plane %s is landing", newPlane->code);
-			// Sleep for 2 seconds? or just assign current time? Time for landing
-				sleep(2000);
-			// Need to randomly generate a empty landing bay number
-				landingBay = AssignLandingBay();
-
-			// if landed printf("DEBUG: Plane %s parked in landing bay %d", assignedBay);
-				printf("DEBUG: Plane %s parked in landing bay %d",newPlane->code, landingBay);
-				newPlane->parkTime = time(NULL);
-				airport[landingBay] = newPlane;
-				currentAirportCapacity++;
-
+			// Report to console if Airport is full
+			if (currentAirportCapacity == MAXIMUM_AIRPORT_CAPACITY){
+				printf("DEBUG: The airport is full");
 			}
 			// Free up runway
 			isRunwayFree = TRUE;
+		}*/
+
+			// Acquire Empty and Runway Semaphore
+			sem_wait(&empty); // This should block if 0 or full
+			sem_wait(&runway);
+			
+			generate_airplane();
+			
+			// Release Full and Runway Semaphore
+			sem_post(&runway);
+			sem_post(&full);
 		}
-
-		generate_airplane();
-
 	}
-	*/
+	
+	//pthread_exit(NULL);
 }
 
 // Function to determine whether a plane should be departing or not
@@ -237,7 +227,6 @@ int IsPlaneDeparting(){
 	
 	return 0;	
 }
-
 
 // Calculates the terminal/dock from which the plane will depart
 int CalculateDepartureDock(){
@@ -317,6 +306,14 @@ int main(int argc, char *argv[]){
 
 	InitialiseAirport();
 
+	// Initialize the locks
+	pthread_mutex_init(&airport_mutex, NULL);
+	sem_init(&empty,0,10); // Empty - Starts at 10
+	sem_init(&full,0,0); // Full - Starts at 0
+	sem_init(&runway,0,1); // Runway - Starts at 1
+
+	srand(time(0)); // Seed the rand 
+
 	// Create PIDs for each of the threads
 	pthread_t threads[3];
 
@@ -346,6 +343,8 @@ int main(int argc, char *argv[]){
 	pthread_join(threads[0],NULL);
 	pthread_join(threads[1],NULL);
 	pthread_join(threads[2],NULL);
+
+	//pthread_exit(NULL);
 
 	return 0;
 
