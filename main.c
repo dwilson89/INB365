@@ -94,7 +94,7 @@ void *UserControls(){
 		scanf(" %c", &inputLetter);
 
 		if(inputLetter == 'q' || inputLetter == 'Q'){
-			printf("Debug: Exit\n");
+			printf("Exiting Program, Joining Threads\n");
 			ExitProgram();
 		}
 		else if (inputLetter == 'p' || inputLetter == 'P'){
@@ -226,8 +226,6 @@ void generate_airplane(){
 // Producer
 void *AirportArrival(){
 
-	printf("DEBUG: Airport Arrival Started\n");
-
 	// TODO: Add Code for semaphore and mutexes
 
 	// Keeps track of airport capacity
@@ -300,7 +298,6 @@ int CalculateDepartureDock(){
 	}
 
 	ranNum = numberFree * (rand() / (RAND_MAX + 1.0));
-	printf("RanNum is %d\n", ranNum);
 	return terminalsUsed[ranNum];
 }
 
@@ -310,8 +307,6 @@ int CalculateDepartureDock(){
 
 // Consumer
 void *AirportDepart(){
-
-	printf("DEBUG: Airport Depart Started\n");
 
 	while(keep_running){
 		int numberFree = 0;
@@ -339,7 +334,6 @@ void *AirportDepart(){
 			sem_wait(&runway);
 
 			int departureDock = CalculateDepartureDock();
-			printf("Dock is %d\n", departureDock);
 
 			struct Airplane* selectedPlane;
 			selectedPlane = airport[departureDock];
