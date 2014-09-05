@@ -279,12 +279,10 @@ int CalculateDepartureDock(){
 	int j = 0;
 	int ranNum = 0;
 	int numberFree = 0;
-	sem_getvalue(&empty, &numberFree);
-	numberFree = 10 - numberFree;
-	
+	sem_getvalue(&full, &numberFree);
+
 	int terminalsUsed[numberFree];
-	printf("Number free is %d\n", numberFree);
-	PrintCurrentState();
+
 
 	for(int i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
 		if (airport[i] != NULL){
