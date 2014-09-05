@@ -47,6 +47,7 @@ sem_t runway;
 void InitialiseAirport(){
 	for(int i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
 		airport[i] = malloc(sizeof(struct Airplane));
+		airport[i] = NULL;
 	}
 }
 
@@ -178,7 +179,7 @@ void generate_airplane(){
 }
 
 // Producer
-void *AirportArrival(){
+void *AirportArrival(){/*
 
 	printf("DEBUG: Airport Arrival Started\n");
 
@@ -213,7 +214,7 @@ void *AirportArrival(){
 			sem_post(&runway);
 			sem_post(&full);
 		}
-	}
+	}*/
 }
 
 // Function to determine whether a plane should be departing or not
@@ -239,9 +240,10 @@ int CalculateDepartureDock(){
 	int j = 0;
 	int ranNum = 0;
 	int numberFree = 0;
-	int currentAirportCapacity = sem_getvalue(&empty, &numberFree);
+	sem_getvalue(&empty, &numberFree);
+	numberFree = 10 - numberFree;
 	
-	int terminalsUsed[currentAirportCapacity];
+	int terminalsUsed[numberFree];
 
 	for(int i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
 		if (airport[i] != NULL){
@@ -250,8 +252,8 @@ int CalculateDepartureDock(){
 		}
 	}
 
-	ranNum = currentAirportCapacity * (rand() / (RAND_MAX + 1.0));
-	return ranNum;
+	ranNum = numberFree * (rand() / (RAND_MAX + 1.0));
+	return terminalsUsed[ranNum];
 }
 
 
@@ -276,14 +278,16 @@ void *AirportDepart(){
 		if(IsPlaneDeparting()){
 
 			int semValue = 0;
+			sem_getvalue(&full, &semValue);
 
-			if(sem_getvalue(&full, &semValue) == 0){
+			if(semValue == 0){
 				printf("The airport is empty\n");
 			}
 			sem_wait(&full);
 			sem_wait(&runway);
 
 			int departureDock = CalculateDepartureDock();
+			printf("Dock is %d\n", departureDock);
 
 			struct Airplane* selectedPlane;
 			selectedPlane = airport[departureDock];
