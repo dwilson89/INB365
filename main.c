@@ -149,26 +149,31 @@ void generate_airplane(){
 	int landingBay;
 
 	// Create a new plane	
-	struct Airplane newPlane;
-	newPlane.code = CreateAirplaneCode();
+	struct Airplane* newPlane = malloc(sizeof(struct Airplane));
+	printf("DEBUG: Airplane Created\n");
+	newPlane->code = CreateAirplaneCode();
 	// if landing printf("DEBUG: Plane %s is landing", newPlane.code);
-	printf("DEBUG: Plane %s is landing", newPlane.code);
+	printf("DEBUG: Plane %s is landing\n", newPlane->code);
 	// Sleep for 2 seconds? or just assign current time? Time for landing
-	sleep(2000);
+	sleep(2);
 
 	//Acquire mutex lock to protect airport
 	pthread_mutex_lock(&airport_mutex);
 
 	// Need to randomly generate a empty landing bay number
 	landingBay = AssignLandingBay();
+	printf("DEBUG: Landing bay Assigned\n");
 
 	// if landed printf("DEBUG: Plane %s parked in landing bay %d", assignedBay);
-	printf("DEBUG: Plane %s parked in landing bay %d",newPlane.code, landingBay);
+	printf("DEBUG: Plane %s parked in landing bay %d\n",newPlane->code, landingBay);
 	newPlane->parkTime = time(NULL);
+	printf("DEBUG: ParkTime assigned\n");
 	airport[landingBay] = newPlane;
+	printf("DEBUG: plane full parked\n");
 	
 	// Release mutex lock and Full Semaphore
 	pthread_mutex_unlock(&airport_mutex);
+	printf("DEBUG: Mutex released\n");
 
 }
 
@@ -187,7 +192,7 @@ void *AirportArrival(){
 		// Get the current count for the full semaphore to indicate airport capacity
 		sem_getvalue(&full, &currentAirportCapacity);
 
-		sleep(500);
+		sleep(0.5);
 
 		// Is a new plane to be generated
 		if(IsPlaneGenerated()){
@@ -271,8 +276,6 @@ void *AirportDepart(){
 		if(IsPlaneDeparting()){
 
 			int semValue = 0;
-
-			
 
 			if(sem_getvalue(&full, &semValue) == 0){
 				printf("The airport is empty\n");
