@@ -179,7 +179,7 @@ void generate_airplane(){
 }
 
 // Producer
-void *AirportArrival(){/*
+void *AirportArrival(){
 
 	printf("DEBUG: Airport Arrival Started\n");
 
@@ -214,7 +214,7 @@ void *AirportArrival(){/*
 			sem_post(&runway);
 			sem_post(&full);
 		}
-	}*/
+	}
 }
 
 // Function to determine whether a plane should be departing or not
