@@ -81,7 +81,7 @@ void PrintCurrentState(){
 
 void *UserControls(){
 
-	printf("DEBUG: User Controls Started\n");
+	//printf("DEBUG: User Controls Started\n");
 	
 	while(keep_running){
 
@@ -195,7 +195,7 @@ void generate_airplane(){
 	// Create a new plane	
 	struct Airplane* newPlane = malloc(sizeof(struct Airplane));
 	newPlane->code = CreateAirplaneCode();
-	// if landing 
+	// Plance Landing 
 	printf("Plane %s is landing", newPlane->code);
 	// Sleep for 2 seconds? or just assign current time? Time for landing
 	sleep(2);
@@ -219,10 +219,6 @@ void generate_airplane(){
 // Producer
 void *AirportArrival(){
 
-	printf("DEBUG: Airport Arrival Started\n");
-
-	// TODO: Add Code for semaphore and mutexes
-
 	// Keeps track of airport capacity
 	int currentAirportCapacity = 0;
 
@@ -230,8 +226,6 @@ void *AirportArrival(){
 
 		// Get the current count for the full semaphore to indicate airport capacity
 		sem_getvalue(&full, &currentAirportCapacity);
-
-		
 
 		// Is a new plane to be generated
 		if(IsPlaneGenerated()){
@@ -280,12 +274,10 @@ int CalculateDepartureDock(){
 	int j = 0;
 	int ranNum = 0;
 	int numberFree = 0;
-	sem_getvalue(&empty, &numberFree);
-	numberFree = 10 - numberFree;
-	
+	sem_getvalue(&full, &numberFree);
+
 	int terminalsUsed[numberFree];
-	printf("Number free is %d\n", numberFree);
-	PrintCurrentState();
+
 
 	for(int i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
 		if (airport[i] != NULL){
