@@ -16,10 +16,9 @@
 #include <semaphore.h>
 #include <unistd.h>
 
+// Define Globals being used
 #define MAXIMUM_AIRPORT_CAPACITY 10
 #define AIRPLANE_CODE 6
-
-// Not sure if this compiler allows bools
 #define TRUE 1
 #define FALSE 0 
 
@@ -36,14 +35,19 @@ struct Airplane *airport[MAXIMUM_AIRPORT_CAPACITY];
 int arrivalOdds = 0;
 int departureOdds = 0;
 
+// Global variable for termination 
 int keep_running = 1;
 
+// Semaphores and Mutex
 pthread_mutex_t airport_mutex;
 sem_t empty;
 sem_t full;
 sem_t runway;
 
-// Function to allocate memory for each Airplane in the airport
+// Author: Chris Rhodan
+// Purpose: Function to allocate memory for each Airplane in the airport
+// Pre
+// Post:
 void InitialiseAirport(){
 	int i = 0;
 	for(i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
@@ -52,8 +56,11 @@ void InitialiseAirport(){
 	}
 }
 
-
-// Calculates how long a plane has been parked
+// Author: Chris Rhodan
+// Purpose: Function that calculates how long a plane has been parked
+// Parameter dock:
+// Pre:
+// Post:
 double GetStayTime(int dock){
 	double timeTaken = 0;
 	struct Airplane* currentPlane = airport[dock];
@@ -67,10 +74,18 @@ double GetStayTime(int dock){
 }
 
 
+// Author: Chris Rhodan
+// Purpose: Function sets the global for exit the program to zero
+// Pre:
+// Post:
 void ExitProgram(){
 	keep_running = 0;
 }
 
+// Author: Chris Rhodan
+// Purpose: Function that prints the airports current status to the console
+// Pre:
+// Post:
 void PrintCurrentState(){
 	printf("Airport State:\n");
 	int i = 0;
@@ -86,6 +101,10 @@ void PrintCurrentState(){
 	
 }
 
+// Author: Chris Rhodan
+// Purpose: Thread for the user controls monitor
+// Pre: true
+// Post: keep_running = 0, pthread_join(userControls,NULL);
 void *UserControls(){
 	
 	while(keep_running){
@@ -103,20 +122,20 @@ void *UserControls(){
 		else{
 			printf("Error: Not a valid Input\n");
 		}
-
 	}
-
 }
 
 
 
-
-// Creates an random 6 character code for the generated airplane 2 capital 
-// letters and 4 numerical values
+// Author: Dustin Wilson
+// Purpose: Creates an random 6 character code for the generated airplane 2 capital 
+// 			letters and 4 numerical values
+// Pre:
+// Post:
 char *CreateAirplaneCode(){
 
 	int ranNum = 0;
-	int counter = 0;
+	int counter = 0;// Variable to keep track of code index
 
 	//ASCII for 'A' is 65, '0' is 48
 	char *code;
@@ -143,7 +162,10 @@ char *CreateAirplaneCode(){
 	return code;
 }
 
-// Checks if a new plane is to be generated
+// Author: Dustin Wilson
+// Purpose: Function that determines if a new plane is to be generated
+// Pre:
+// Post:
 int IsPlaneGenerated(){
 	int ranNum = 0;
 	int isGenerated = 0;
@@ -160,7 +182,10 @@ int IsPlaneGenerated(){
 	return isGenerated;
 }
 
-// Randomly Assigns a empty landing bay for the landed airplane
+// Author: Dustin Wilson
+// Purpose: Function that randomly Assigns a empty landing bay for the landed airplane
+// Pre:
+// Post:
 int AssignLandingBay(){
 
 	int isBayFull = 1;
@@ -193,6 +218,10 @@ int AssignLandingBay(){
 
 }
 
+// Author: Dustin Wilson
+// Purpose: Function that generates an airplane, lands it, then assigns it a bay
+// Pre:
+// Post:
 void generate_airplane(){
 
 	int landingBay;
@@ -223,7 +252,10 @@ void generate_airplane(){
 
 }
 
-// Producer
+// Author: Dustin Wilson
+// Purpose: The producer thread, thread to generate airplanes arriving at the airport
+// Pre: true
+// Post: keep_running = 0, pthread_join(AirportArrival,NULL);
 void *AirportArrival(){
 
 	// TODO: Add Code for semaphore and mutexes
@@ -263,8 +295,10 @@ void *AirportArrival(){
 	}
 }
 
-// Function to determine whether a plane should be departing or not
-
+// Author: Chris Rhodan
+// Purpose: Function to determine whether a plane should be departing or not
+// Pre: 
+// Post: 
 int IsPlaneDeparting(){
 	int ranNum	= 0;
 
@@ -278,9 +312,11 @@ int IsPlaneDeparting(){
 	return 0;	
 }
 
-// Calculates the terminal/dock from which the plane will depart
+// Author: Chris Rhodan
+// Purpose: Function to calculate the terminal/dock from which the plane will depart
+// Pre: 
+// Post: 
 int CalculateDepartureDock(){
-
 	
 	int j = 0;
 	int ranNum = 0;
@@ -301,11 +337,10 @@ int CalculateDepartureDock(){
 	return terminalsUsed[ranNum];
 }
 
-
-
-
-
-// Consumer
+// Author: Chris Rhodan
+// Purpose: The consumer thread, thread to "consume/remove" airplanes departing from the airport
+// Pre: true
+// Post: keep_running = 0, pthread_join(AirportDepart,NULL);
 void *AirportDepart(){
 
 	while(keep_running){
@@ -361,19 +396,26 @@ void *AirportDepart(){
 	}
 }
 
-
+// Author: Chris Rhodan
+// Purpose: Function to check if the parametres are whithin the correct range of allowed values
+// Pre: true
+// Post: False if (arrivalOdds < 1 || arrivalOdds > 90) or (departureOdds < 1 || departureOdds > 90)
 int checkParameters(){
 	if(arrivalOdds < 1 || arrivalOdds > 90){
-		return 0;
+		return FALSE;
 	}
 
 	if(departureOdds < 1 || departureOdds > 90){
-		return 0;
+		return FALSE;
 	}
 
-	return 1;
+	return TRUE;
 }
 
+// Author: Chris Rhodan and Dustin Wilson
+// Purpose: Main thread that initialise the simulation and the other threads, and runs the program
+// Pre: true
+// Post: 
 int main(int argc, char *argv[]){
 
 	if(argc != 3){
