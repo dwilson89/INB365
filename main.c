@@ -26,7 +26,7 @@
 // Struct to represent a single Airplane
 struct Airplane{
 	char *code;
-	time_t parkTime;
+	double parkTime;
 };
 
 // Array of Pointers to Airplanes to represent the Airport - shared resource
@@ -45,7 +45,8 @@ sem_t runway;
 
 // Function to allocate memory for each Airplane in the airport
 void InitialiseAirport(){
-	for(int i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
+	int i = 0;
+	for(i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
 		airport[i] = malloc(sizeof(struct Airplane));
 		airport[i] = NULL;
 	}
@@ -57,7 +58,12 @@ double GetStayTime(int dock){
 	double timeTaken = 0;
 	struct Airplane* currentPlane = airport[dock];
 
-	return difftime(time(NULL), currentPlane->parkTime);
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	double time_in_mill = ((tv.tv_sec) * 1000 + (tv.tv_usec) / 1000); 
+
+
+	return (time_in_mill - currentPlane->parkTime)/1000;
 }
 
 
@@ -67,21 +73,20 @@ void ExitProgram(){
 
 void PrintCurrentState(){
 	printf("Airport State:\n");
-	for (int i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
+	int i = 0;
+	for (i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
 		printf("%d: ", i);
 		if(airport[i] == NULL){
 			printf("Empty\n");
 		}
 		else{
-			printf("%s (has parked for %f seconds)\n", airport[i]->code, GetStayTime(i));
+			printf("%s (has parked for %6.3f seconds)\n", airport[i]->code, GetStayTime(i));
 		}
 	}
 	
 }
 
 void *UserControls(){
-
-	printf("DEBUG: User Controls Started\n");
 	
 	while(keep_running){
 
@@ -145,10 +150,11 @@ int IsPlaneGenerated(){
 
 	// Calculate a value between 0 and 100
 	ranNum = 100 * (rand() / (RAND_MAX + 1.0));
+	//printf("Rannum is %d\n", ranNum);
+	//printf("Arrival Odds are %d\n", arrivalOdds);
 
 	// If value is in arrivalOdds range 0 - arrivalOdds (it has that chance to be in that range)
 	if(ranNum < arrivalOdds) {
-
 		isGenerated = 1;
 	}
 
@@ -207,7 +213,9 @@ void generate_airplane(){
 
 	// if landed printf("DEBUG: Plane %s parked in landing bay %d", assignedBay);
 	printf("DEBUG: Plane %s parked in landing bay %d\n",newPlane->code, landingBay);
-	newPlane->parkTime = time(NULL);
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	newPlane->parkTime = ((tv.tv_sec) * 1000 + (tv.tv_usec) / 1000); 
 	airport[landingBay] = newPlane;
 	
 	// Release mutex lock and Full Semaphore
@@ -217,8 +225,6 @@ void generate_airplane(){
 
 // Producer
 void *AirportArrival(){
-
-	printf("DEBUG: Airport Arrival Started\n");
 
 	// TODO: Add Code for semaphore and mutexes
 
@@ -253,11 +259,12 @@ void *AirportArrival(){
 			sem_post(&full);
 
 		}
-		sleep(0.5);
+		usleep(500000);
 	}
 }
 
 // Function to determine whether a plane should be departing or not
+
 
 int IsPlaneDeparting(){
 	int ranNum	= 0;
@@ -275,7 +282,6 @@ int IsPlaneDeparting(){
 // Calculates the terminal/dock from which the plane will depart
 int CalculateDepartureDock(){
 
-	
 	int j = 0;
 	int ranNum = 0;
 	int numberFree = 0;
@@ -283,8 +289,8 @@ int CalculateDepartureDock(){
 
 	int terminalsUsed[numberFree];
 
-
-	for(int i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
+	int i = 0;
+	for(i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
 		if (airport[i] != NULL){
 			terminalsUsed[j] = i;
 			j++;
@@ -292,7 +298,6 @@ int CalculateDepartureDock(){
 	}
 
 	ranNum = numberFree * (rand() / (RAND_MAX + 1.0));
-	printf("RanNum is %d\n", ranNum);
 	return terminalsUsed[ranNum];
 }
 
@@ -302,8 +307,6 @@ int CalculateDepartureDock(){
 
 // Consumer
 void *AirportDepart(){
-
-	printf("DEBUG: Airport Depart Started\n");
 
 	while(keep_running){
 		int numberFree = 0;
@@ -331,12 +334,11 @@ void *AirportDepart(){
 			sem_wait(&runway);
 
 			int departureDock = CalculateDepartureDock();
-			printf("Dock is %d\n", departureDock);
 
 			struct Airplane* selectedPlane;
 			selectedPlane = airport[departureDock];
 
-			printf("After staying at bay %d for %f seconds, plane %s is taking off...\n", departureDock, GetStayTime(departureDock), selectedPlane->code); 
+			printf("After staying at bay %d for %6.3f seconds, plane %s is taking off...\n", departureDock, GetStayTime(departureDock), selectedPlane->code); 
 			sleep(2);
 			printf("Plane %s has finished taking off\n", selectedPlane->code);
 			
@@ -350,12 +352,10 @@ void *AirportDepart(){
 			pthread_mutex_unlock(&airport_mutex);
 
 			sem_post(&runway);
-			sem_post(&empty);
-			printf("Empty is release\n");			
+			sem_post(&empty);		
 		}
-		
 
-		sleep(0.5);
+		usleep(500000);
 
 	}
 }
@@ -386,6 +386,8 @@ int main(int argc, char *argv[]){
 			printf("Welcome to the airport simulator.\n");
 			printf("Press p or P followed by return to display the state of the airport\n");
 			printf("Press q or Q followed by return to terminate the simulation\n");
+			printf("\n Press Return to start the simulation\n");
+			getchar();
 		}
 		else{
 			printf("Error: Parameter can not be less than 1 or greater than 90\n");
