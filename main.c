@@ -177,8 +177,6 @@ void *AirportArrival(){
 
 	printf("DEBUG: Airport Arrival Started\n");
 
-	
-
 	// TODO: Add Code for semaphore and mutexes
 
 	// Keeps track of airport capacity
@@ -198,9 +196,7 @@ void *AirportArrival(){
 			if (currentAirportCapacity == MAXIMUM_AIRPORT_CAPACITY){
 				printf("DEBUG: The airport is full");
 			}
-			// Free up runway
-			isRunwayFree = TRUE;
-		}
+		
 
 			// Acquire Empty and Runway Semaphore
 			sem_wait(&empty); // This should block if 0 or full
@@ -213,8 +209,6 @@ void *AirportArrival(){
 			sem_post(&full);
 		}
 	}
-	
-	//pthread_exit(NULL);
 }
 
 // Function to determine whether a plane should be departing or not
