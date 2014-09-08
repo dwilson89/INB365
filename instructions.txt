@@ -1,0 +1,12 @@
+In order to compile the program, the following command was used in the command line;
+
+gcc -o <ProgramName> AirportSimulator.c -pthread
+
+where <ProgramName> is whatever you want the executable to be called (We use AirportSimulator).
+
+
+To run the program, simply run the command ./<ProgramName> x y		
+
+Where <ProgramName> is whatever you called the executable above,
+x is the desired odds of a plane arriving (percentage between 1-90%)
+y is the desired odds of a plane departing (percentage between 1-90%)
