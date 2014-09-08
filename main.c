@@ -1,5 +1,3 @@
-
-
 //	Solution for INB365 Assignment 1
 // 
 //	Authors:
@@ -46,8 +44,8 @@ sem_t runway;
 
 // Author: Chris Rhodan
 // Purpose: Function to allocate memory for each Airplane in the airport
-// Pre
-// Post:
+// Pre: true
+// Post: airport array memory allocated
 void InitialiseAirport(){
 	int i = 0;
 	for(i = 0; i < MAXIMUM_AIRPORT_CAPACITY; i++){
@@ -58,9 +56,9 @@ void InitialiseAirport(){
 
 // Author: Chris Rhodan
 // Purpose: Function that calculates how long a plane has been parked
-// Parameter dock:
-// Pre:
-// Post:
+// Parameter dock: dock number for airplane
+// Pre: true
+// Post: total time in landing bay: (time_in_mill - currentPlane->parkTime)/1000
 double GetStayTime(int dock){
 	double timeTaken = 0;
 	struct Airplane* currentPlane = airport[dock];
@@ -69,23 +67,22 @@ double GetStayTime(int dock){
 	gettimeofday(&tv, NULL);
 	double time_in_mill = ((tv.tv_sec) * 1000 + (tv.tv_usec) / 1000); 
 
-
 	return (time_in_mill - currentPlane->parkTime)/1000;
 }
 
 
 // Author: Chris Rhodan
 // Purpose: Function sets the global for exit the program to zero
-// Pre:
-// Post:
+// Pre: if(inputLetter == 'q' || inputLetter == 'Q')
+// Post: keep_running = 0;
 void ExitProgram(){
 	keep_running = 0;
 }
 
 // Author: Chris Rhodan
 // Purpose: Function that prints the airports current status to the console
-// Pre:
-// Post:
+// Pre: (inputLetter == 'p' || inputLetter == 'P') or program is exitting 
+// Post: prints airport status to console
 void PrintCurrentState(){
 	printf("Airport State:\n");
 	int i = 0;
@@ -98,7 +95,6 @@ void PrintCurrentState(){
 			printf("%s (has parked for %6.3f seconds)\n", airport[i]->code, GetStayTime(i));
 		}
 	}
-	
 }
 
 // Author: Chris Rhodan
@@ -128,19 +124,18 @@ void *UserControls(){
 
 
 // Author: Dustin Wilson
-// Purpose: Creates an random 6 character code for the generated airplane 2 capital 
+// Purpose: Function to creates an random 6 character code for the generated airplane 2 capital 
 // 			letters and 4 numerical values
-// Pre:
-// Post:
+// Pre: true
+// Post: returns a 6 alphanumerical airplane code
 char *CreateAirplaneCode(){
 
 	int ranNum = 0;
 	int counter = 0;// Variable to keep track of code index
-
-	//ASCII for 'A' is 65, '0' is 48
 	char *code;
 	code = malloc(AIRPLANE_CODE*sizeof(char));
 
+	// ASCII for 'A' is 65, '0' is 48
 	while (counter < AIRPLANE_CODE){
 
 		// random generate 2 Alpha chars A-Z
@@ -164,8 +159,8 @@ char *CreateAirplaneCode(){
 
 // Author: Dustin Wilson
 // Purpose: Function that determines if a new plane is to be generated
-// Pre:
-// Post:
+// Pre: true
+// Post: if(ranNum < arrivalOdds) isGenerated true, else false.
 int IsPlaneGenerated(){
 	int ranNum = 0;
 	int isGenerated = 0;
@@ -184,8 +179,8 @@ int IsPlaneGenerated(){
 
 // Author: Dustin Wilson
 // Purpose: Function that randomly Assigns a empty landing bay for the landed airplane
-// Pre:
-// Post:
+// Pre: true
+// Post: returns a randomly generated landing bay option
 int AssignLandingBay(){
 
 	int isBayFull = 1;
@@ -215,13 +210,12 @@ int AssignLandingBay(){
 
 	// Return the value at the random index value
 	return freeSpots[ranNum];
-
 }
 
 // Author: Dustin Wilson
 // Purpose: Function that generates an airplane, lands it, then assigns it a bay
-// Pre:
-// Post:
+// Pre: if(IsPlaneGenerated())
+// Post: airplane is added to airport landing bay
 void generate_airplane(){
 
 	int landingBay;
@@ -258,8 +252,6 @@ void generate_airplane(){
 // Post: keep_running = 0, pthread_join(AirportArrival,NULL);
 void *AirportArrival(){
 
-	// TODO: Add Code for semaphore and mutexes
-
 	// Keeps track of airport capacity
 	int currentAirportCapacity = 0;
 
@@ -267,8 +259,6 @@ void *AirportArrival(){
 
 		// Get the current count for the full semaphore to indicate airport capacity
 		sem_getvalue(&full, &currentAirportCapacity);
-
-		
 
 		// Is a new plane to be generated
 		if(IsPlaneGenerated()){
@@ -278,13 +268,11 @@ void *AirportArrival(){
 				printf("The airport is full");
 			}
 			
-
 			// Acquire Empty and Runway Semaphore
 			sem_wait(&empty); // This should block if 0 or full
 			sem_wait(&runway);
 			
 			generate_airplane();
-
 			
 			// Release Full and Runway Semaphore
 			sem_post(&runway);			
@@ -297,8 +285,8 @@ void *AirportArrival(){
 
 // Author: Chris Rhodan
 // Purpose: Function to determine whether a plane should be departing or not
-// Pre: 
-// Post: 
+// Pre: true 
+// Post: if(ranNum < departureOdds) true, else false
 int IsPlaneDeparting(){
 	int ranNum	= 0;
 
@@ -307,15 +295,15 @@ int IsPlaneDeparting(){
 
 	// If value is in departureOdds range 0 - departureOdds, then a plan should depart
 	if(ranNum < departureOdds){
-		return 1;
+		return TRUE;
 	}
-	return 0;	
+	return FALSE;	
 }
 
 // Author: Chris Rhodan
 // Purpose: Function to calculate the terminal/dock from which the plane will depart
-// Pre: 
-// Post: 
+// Pre: true
+// Post: returns a randomly selected occupied dock for takeoff
 int CalculateDepartureDock(){
 	
 	int j = 0;
@@ -348,7 +336,6 @@ void *AirportDepart(){
 		int currentAirportCapacity = sem_getvalue(&empty, &numberFree);
 		int semValue = 0;
 		sem_getvalue(&full, &semValue);
-
 
 		if(semValue == 0){
 			printf("The airport is empty\n");
@@ -389,10 +376,7 @@ void *AirportDepart(){
 			sem_post(&runway);
 			sem_post(&empty);		
 		}
-		
-
 		usleep(500000);
-
 	}
 }
 
@@ -415,7 +399,7 @@ int checkParameters(){
 // Author: Chris Rhodan and Dustin Wilson
 // Purpose: Main thread that initialise the simulation and the other threads, and runs the program
 // Pre: true
-// Post: 
+// Post: prints out current airport status and joins all threads
 int main(int argc, char *argv[]){
 
 	if(argc != 3){
