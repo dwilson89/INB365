@@ -22,6 +22,7 @@
 #define MYPORT 12345    /* the default port users will be connecting to */
 #define BACKLOG 10     /* how many pending connections queue will hold */
 #define CALORIESENTRIES 959 // Number of unique entries in calories.csv, ideally would be dyanmic
+#define SEARCHTERMLENGTH 128 /* max number of bytes we can get at once */
 
 
 // Struct to hold an entry from calories.csv
@@ -48,6 +49,23 @@ int entriesAdded = 0;
 // the number of commas if the name doesn't include any commas in it)
 int minCommas = 6;
 
+
+// Searches for an item and sends results to client
+void SearchForItem(int fd, char searchTerm[128]){
+	if (send(fd, calorieEntries[0].name, sizeof(calorieEntries[0].name), 0) == -1){
+		perror("send");
+	}
+
+}
+
+
+
+
+
+
+
+
+	
 
 // Create a new CalorieEntry struct from the given line from the Calories.csv file
 void CreateCalorieEntry(char line[256]){
@@ -158,10 +176,11 @@ void LoadCSV(){
 
 int main(int argc, char *argv[])
 {
-	int sockfd, new_fd;  /* listen on sock_fd, new connection on new_fd */
+	int sockfd, new_fd, numbytes;  /* listen on sock_fd, new connection on new_fd */
 	struct sockaddr_in my_addr;    /* my address information */
 	struct sockaddr_in their_addr; /* connector's address information */
 	socklen_t sin_size;
+	char searchTerm[SEARCHTERMLENGTH];
 
 	/* generate the socket */
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
@@ -217,10 +236,27 @@ int main(int argc, char *argv[])
 			perror("accept");
 			continue;
 		}
+
+
+		if ((numbytes=recv(new_fd, searchTerm, SEARCHTERMLENGTH, 0)) == -1) {
+			perror("recv");
+			exit(1);
+		}
+
+		searchTerm[numbytes] = '\0';
+
+		printf("Received: %s",searchTerm);
+
+
+		SearchForItem(new_fd, searchTerm);
+
+
+
 		printf("server: got connection from %s\n", \
 			inet_ntoa(their_addr.sin_addr));
 		if (!fork()) { /* this is the child process */
-			if (send(new_fd, "Test!\n", 14, 0) == -1)
+			//if (send(new_fd, "Test!\n", 14, 0) == -1)
+			if (send(new_fd, calorieEntries[0].name, sizeof(calorieEntries[0].name), 0) == -1)
 				perror("send");
 			close(new_fd);
 			exit(0);
