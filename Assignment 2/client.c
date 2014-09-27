@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 	}
 
 	if ((he=gethostbyname(argv[1])) == NULL) {  /* get the host info */
-		herror("gethostbyname");
+		perror("gethostbyname");
 		exit(1);
 	}
 
@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+	printf("Connection Established\n");
 
 	// TODO: Finish Main Loop
 
@@ -73,8 +74,17 @@ int main(int argc, char *argv[])
 		printf("Enter the food name to search for, or 'q' to quit:\n");
 		while(1){
 			char searchTerm[SEARCHTERMLENGTH];  // Buffer to store the search term
+			char q[3] = "q\n";
 			
 			if(fgets(searchTerm, sizeof(searchTerm), stdin)){
+
+				if(strcmp("q\n", searchTerm) == 0 || strcmp("Q\n", searchTerm) == 0){
+					// TODO: More graceful exit
+					exit(0);
+				}
+
+
+				send(sockfd, searchTerm, SEARCHTERMLENGTH, 0);
 				// TODO: Send Request to Server
 
 				// TODO: Receive Response from Server
@@ -96,7 +106,7 @@ int main(int argc, char *argv[])
 
 	
 
-
+	//send(sockfd, "Dressing!\n", 14, 0);
 	
 
 	if ((numbytes=recv(sockfd, buf, MAXDATASIZE, 0)) == -1) {
