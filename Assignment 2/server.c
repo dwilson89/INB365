@@ -58,6 +58,34 @@ int entriesAdded = 0;
 int minCommas = 6;
 
 
+// Returns 1 if the search term is found in the name, 0 if it is not
+int CompareNames(char searchTerm[128], char foodName[128], int numSpaces){
+	
+	int count = numSpaces;
+
+	for(int i = 0; i < 128; i++){
+		// If we've reached the end of the word, either because we've run out of spaces
+		// or reached a NULL character then break (and eventually, return true)
+		if(count == 0 || foodName[i] == NULL){
+			break;
+		}
+		// If there's a space, reduce the word count by 1
+		if(foodName[i] == " "){
+			count--;
+		}
+		else{
+			// If the search term doesn't match the name of the food, return false
+			if(searchTerm[i] != foodName[i]){
+				return 0;
+			}
+		}
+	}
+
+	return 1;
+
+}
+
+
 // Searches for an item and sends results to client
 void SearchForItem(int fd, char searchTerm[128]){
 
@@ -137,8 +165,9 @@ void SearchForItem(int fd, char searchTerm[128]){
 			
 			// Check if the search term matches the shortened name, and if so then send the details
 			// to the client
-			if(strstr(shortenedName, searchTerm) != NULL){
+			if(CompareNames(shortenedName, searchTerm, nameSpaceCount)){
 
+			
 				// Reset the food name back to it's original name
 				strcpy(calorieEntries[i].name, originalName);
 
