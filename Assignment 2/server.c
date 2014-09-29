@@ -10,6 +10,7 @@
 
 #include <arpa/inet.h>
 #include <stdio.h> 
+#include <ctype.h>
 #include <stdlib.h> 
 #include <errno.h> 
 #include <string.h> 
@@ -74,14 +75,11 @@ void SearchForItem(int fd, char searchTerm[128]){
 			}
 
 		}
-		//printf("Searh Spaces is %d      ", searchSpaceCount);
-		//printf("nameSpaceCount is %d\n", nameSpaceCount);
 
 		// The search term has to be equal to or shorter than the name for
 		// the search to work
 		if (searchSpaceCount <= nameSpaceCount){
 
-			//TODO: Add Case Inesensitivity
 
 			// Because the algoirthm makes no practical sense, we start at the start of the word and 
 			// ignore the same search term later in the name. I.e., searching for "cake" should return
@@ -116,6 +114,16 @@ void SearchForItem(int fd, char searchTerm[128]){
 
 			// Add a newline character as the search term includes a new line character
 			strcat(shortenedName, "\n");
+
+			// Convert the shortened name to all lower case
+			for(int i = 0; i < 128; i++){
+				shortenedName[i] = tolower(shortenedName[i]);
+			}
+
+			// Convert the search term to all lower case
+			for(int i = 0; i < 128; i++){
+				searchTerm[i] = tolower(searchTerm[i]);
+			}
 			
 			// Check if the search term matches the shortened name, and if so then send the details
 			// to the client
