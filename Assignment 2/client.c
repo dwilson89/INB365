@@ -43,6 +43,22 @@ struct CalorieEntry {
 
 int keep_running = TRUE;
 
+
+
+// Outputs the data from the food structure to the console
+
+void PrintFood(struct CalorieEntry currentFood){
+
+	printf("Food: %s\n", currentFood.name);
+	printf("Measure: %s\n", currentFood.measure);
+	printf("Weight (g): %d\n", currentFood.weight);
+	printf("kCal: %d\n", currentFood.cal);
+	printf("Fat (g): %d\n", currentFood.fat);
+	printf("Carbo (g): %d\n", currentFood.carb);
+	printf("Protein (g): %d\n\n", currentFood.protein);
+
+}
+
 int main(int argc, char *argv[])
 {
 	int sockfd, numbytes;  
@@ -78,7 +94,7 @@ int main(int argc, char *argv[])
 	// Connect to the Server
 
 	if (connect(sockfd, (struct sockaddr *)&their_addr, \
-	sizeof(struct sockaddr)) == -1) {
+		sizeof(struct sockaddr)) == -1) {
 		perror("connect");
 		exit(1);
 	}
@@ -89,10 +105,13 @@ int main(int argc, char *argv[])
 
 	while(keep_running){
 
+
 		printf("Enter the food name to search for, or 'q' to quit:\n");
+
 		while(1){
 			char searchTerm[SEARCHTERMLENGTH];  // Buffer to store the search term
 			char q[3] = "q\n";
+			memset(&buf, 0, sizeof(buf));
 			
 			if(fgets(searchTerm, sizeof(searchTerm), stdin)){
 
@@ -101,17 +120,18 @@ int main(int argc, char *argv[])
 					exit(0);
 				}
 
-
+				
 				send(sockfd, searchTerm, SEARCHTERMLENGTH, 0);
 				
-				if ((numbytes=recv(sockfd, &buf, sizeof(struct CalorieEntry), 0)) == -1) {
-					perror("recv");
-					exit(1);
-				}
 
-
-				printf("Received: %s\n",buf.name);
-
+				// While still receiving messages, keep looping
+				while(recv(sockfd, &buf, sizeof(struct CalorieEntry), 0) != -1){
+					
+					if(strstr(buf.name, "End Message")){
+						break;
+					}
+					PrintFood(buf);
+				} 
 				// TODO: Output Response to user
 
 
@@ -122,8 +142,10 @@ int main(int argc, char *argv[])
 				printf("An Error has occured in your search term, please try again\n\n");
 				break;
 			}
+			break;
 
 		}
+		//close(sockfd);
 		
 	}
 
