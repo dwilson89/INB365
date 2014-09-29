@@ -24,6 +24,11 @@
 #define BACKLOG 10     /* how many pending connections queue will hold */
 #define CALORIESENTRIES 959 // Number of unique entries in calories.csv, ideally would be dyanmic
 #define SEARCHTERMLENGTH 128 /* max number of bytes we can get at once */
+#define TRUE 1
+#define FALSE 1
+
+
+int keep_running = TRUE;
 
 
 // Struct to hold an entry from calories.csv
@@ -104,7 +109,6 @@ void SearchForItem(int fd, char searchTerm[128]){
 			strcpy(shortenedName, token);
 
 			// Add any additional words, based on whether theres spaces
-
 			for(int i = 1; i < searchSpaceCount; i++){
 				// Get the next token and append it after a space
 				token = strtok(NULL, " ");
@@ -112,11 +116,17 @@ void SearchForItem(int fd, char searchTerm[128]){
 				strcat(shortenedName, token);
 			}
 
+			
+
 			// Add a newline character as the search term includes a new line character
 			strcat(shortenedName, "\n");
 
 			// Convert the shortened name to all lower case
 			for(int i = 0; i < 128; i++){
+				if(shortenedName[i] == ','){
+					strtok(shortenedName, ",");
+					strcat(shortenedName, "\n");
+				}
 				shortenedName[i] = tolower(shortenedName[i]);
 			}
 
@@ -132,20 +142,18 @@ void SearchForItem(int fd, char searchTerm[128]){
 				// Reset the food name back to it's original name
 				strcpy(calorieEntries[i].name, originalName);
 
-				
-				printf("Food is %s\n", shortenedName);
-				/*if (send(fd, calorieEntries[i].name, sizeof(calorieEntries[i].name), 0) == -1){
-					perror("send");
-				}*/
+				// Send the result to the client
 				send(fd, &calorieEntries[i], sizeof(calorieEntries[i]), 0);
 			}
-
-
-
+			strcpy(calorieEntries[i].name, originalName);
 
 		}
 	}
-	close(fd);
+
+	struct CalorieEntry endMessage;
+	strcpy(endMessage.name, "End Message");
+	send(fd, &endMessage, sizeof(endMessage), 0);
+
 
 }
 
@@ -184,8 +192,8 @@ void CreateCalorieEntry(char line[256]){
 
 	// Calculate how many commas are included in the name of the food, as these are in addition
 	// to the usual 6 commas included, they are counted as negative entries
-	int count = -commaCount + minCommas;
-
+	int count = 0 -commaCount + minCommas;
+	
 
 	// While there is still text in the line that hasn't been processed
 
@@ -194,14 +202,16 @@ void CreateCalorieEntry(char line[256]){
 		token = strtok(NULL, ",");
 
 		// If the current token is still part of the name of the food
-
+		//printf("%d\n", count);
 		if(count < 0){
+			//printf("Less tha zero\n");
 			// Add in the comma and space as they won't be included in the token
 			strcat(newEntry.name, ", ");
 			// Add the token to the name of the food
 			strcat(newEntry.name, token);
 		}
 		else{
+			//printf("%s\n", newEntry.name);
 			switch (count){
 				// Once the name is completed, the next 6 values should only have a single
 				// comma seperating them, so can be populated using a switch and counter
@@ -225,12 +235,17 @@ void CreateCalorieEntry(char line[256]){
 					break;
 			}
 		}
-		count++;
+	count++;
 	} 
 	
 	// Save the current food's data into the array of entries and increment the counter for entries
 	calorieEntries[entriesAdded] = newEntry;
-	printf("%s\n",strtok(calorieEntries[entriesAdded].name, ","));
+
+	//char originalName[128];
+	//strcpy(originalName, calorieEntries[entriesAdded].name);
+	//printf("%s\n",strtok(calorieEntries[entriesAdded].name, ","));
+	//strcpy(calorieEntries[entriesAdded].name, originalName);
+	printf("%s\n", calorieEntries[entriesAdded].name);
 	entriesAdded++;
 
 	
@@ -321,19 +336,19 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-
-		if ((numbytes=recv(new_fd, searchTerm, SEARCHTERMLENGTH, 0)) == -1) {
+		while(keep_running){
+			if ((numbytes=recv(new_fd, searchTerm, SEARCHTERMLENGTH, 0)) == -1) {
 			perror("recv");
 			exit(1);
+			}
+
+			searchTerm[numbytes] = '\0';
+
+			printf("Received: %s",searchTerm);
+
+			SearchForItem(new_fd, searchTerm);
+
 		}
-
-		searchTerm[numbytes] = '\0';
-
-		printf("Received: %s",searchTerm);
-
-
-		SearchForItem(new_fd, searchTerm);
-
 
 
 		printf("server: got connection from %s\n", \
@@ -346,7 +361,7 @@ int main(int argc, char *argv[])
 			close(new_fd); */
 			exit(0);
 		}
-		close(new_fd);  /* parent doesn't need this */
+		//close(new_fd);  /* parent doesn't need this */
 
 		while(waitpid(-1,NULL,WNOHANG) > 0); /* clean up child processes */
 	}
