@@ -27,6 +27,7 @@
 
 // Struct to hold an entry from calories.csv
 
+#pragma pack(1)
 struct CalorieEntry {
 	char name[128];
 	char measure[32];
@@ -37,6 +38,7 @@ struct CalorieEntry {
 	int protein;
 
 };
+#pragma pack(0)
 
 // Array to hold all the entries
 
@@ -52,20 +54,92 @@ int minCommas = 6;
 
 // Searches for an item and sends results to client
 void SearchForItem(int fd, char searchTerm[128]){
-	if (send(fd, calorieEntries[0].name, sizeof(calorieEntries[0].name), 0) == -1){
-		perror("send");
+
+	// Get the number of words in the search term by counting the spaces
+	int searchSpaceCount = 0;
+	for (int i = 0; i < 128; i++){
+		if (searchTerm[i] == ' '){
+			searchSpaceCount = searchSpaceCount + 1;
+		}
 	}
+	
+	// Cycle through all entries
+	for (int i = 0; i < CALORIESENTRIES; i++){
+		// Count how many spaces are in the name of the current food
+		int nameSpaceCount = 1;	
+
+		for (int j = 0; j < strlen(calorieEntries[i].name); j++){
+			if(calorieEntries[i].name[j] == ' '){
+				nameSpaceCount++;
+			}
+
+		}
+		//printf("Searh Spaces is %d      ", searchSpaceCount);
+		//printf("nameSpaceCount is %d\n", nameSpaceCount);
+
+		// The search term has to be equal to or shorter than the name for
+		// the search to work
+		if (searchSpaceCount <= nameSpaceCount){
+
+			//TODO: Add Case Inesensitivity
+
+			// Because the algoirthm makes no practical sense, we start at the start of the word and 
+			// ignore the same search term later in the name. I.e., searching for "cake" should return
+			// "cake or pastry flour" but not "carrot cake" (making this probably the least practical
+			// search tool ever conceived)
+
+			// Shorten the number of words in the name so it matches the number of words of the searchTerm 
+			char shortenedName[128];
+
+			// As it's a pointer, the original name is overwritten by the shorter name, so we store
+			// the original name here so we can recall it later once we've checked the shorter name
+			char originalName[128];
+			strcpy(originalName, calorieEntries[i].name);
+
+			// String Token
+			char *token;
+
+			// Create the initial Token
+			token = strtok(calorieEntries[i].name, " ");
+
+			// Copy the intial token into the shortened name
+			strcpy(shortenedName, token);
+
+			// Add any additional words, based on whether theres spaces
+
+			for(int i = 1; i < searchSpaceCount; i++){
+				// Get the next token and append it after a space
+				token = strtok(NULL, " ");
+				strcat(shortenedName, " ");
+				strcat(shortenedName, token);
+			}
+
+			// Add a newline character as the search term includes a new line character
+			strcat(shortenedName, "\n");
+			
+			// Check if the search term matches the shortened name, and if so then send the details
+			// to the client
+			if(strstr(shortenedName, searchTerm) != NULL){
+
+				// Reset the food name back to it's original name
+				strcpy(calorieEntries[i].name, originalName);
+
+				
+				printf("Food is %s\n", shortenedName);
+				/*if (send(fd, calorieEntries[i].name, sizeof(calorieEntries[i].name), 0) == -1){
+					perror("send");
+				}*/
+				send(fd, &calorieEntries[i], sizeof(calorieEntries[i]), 0);
+			}
+
+
+
+
+		}
+	}
+	close(fd);
 
 }
-
-
-
-
-
-
-
-
-	
 
 // Create a new CalorieEntry struct from the given line from the Calories.csv file
 void CreateCalorieEntry(char line[256]){
@@ -148,7 +222,9 @@ void CreateCalorieEntry(char line[256]){
 	
 	// Save the current food's data into the array of entries and increment the counter for entries
 	calorieEntries[entriesAdded] = newEntry;
+	printf("%s\n",strtok(calorieEntries[entriesAdded].name, ","));
 	entriesAdded++;
+
 	
 }
 
@@ -255,10 +331,11 @@ int main(int argc, char *argv[])
 		printf("server: got connection from %s\n", \
 			inet_ntoa(their_addr.sin_addr));
 		if (!fork()) { /* this is the child process */
-			//if (send(new_fd, "Test!\n", 14, 0) == -1)
+			//if (send(new_fd, "Test!""", 14, 0) == -1)
+		/*
 			if (send(new_fd, calorieEntries[0].name, sizeof(calorieEntries[0].name), 0) == -1)
 				perror("send");
-			close(new_fd);
+			close(new_fd); */
 			exit(0);
 		}
 		close(new_fd);  /* parent doesn't need this */

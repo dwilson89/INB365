@@ -24,12 +24,30 @@
 #define TRUE 1
 #define FALSE 0 
 
+
+// Struct to hold an entry from calories.csv
+
+#pragma pack(1)
+struct CalorieEntry {
+	char name[128];
+	char measure[32];
+	int weight;
+	int cal;
+	int fat;
+	int carb;
+	int protein;
+
+};
+#pragma pack(0)
+
+
 int keep_running = TRUE;
 
 int main(int argc, char *argv[])
 {
 	int sockfd, numbytes;  
-	char buf[MAXDATASIZE];
+	//char buf[MAXDATASIZE];
+	struct CalorieEntry buf;
 	struct hostent *he;
 	struct sockaddr_in their_addr; /* connector's address information */
 
@@ -85,9 +103,14 @@ int main(int argc, char *argv[])
 
 
 				send(sockfd, searchTerm, SEARCHTERMLENGTH, 0);
-				// TODO: Send Request to Server
+				
+				if ((numbytes=recv(sockfd, &buf, sizeof(struct CalorieEntry), 0)) == -1) {
+					perror("recv");
+					exit(1);
+				}
 
-				// TODO: Receive Response from Server
+
+				printf("Received: %s\n",buf.name);
 
 				// TODO: Output Response to user
 
@@ -108,15 +131,6 @@ int main(int argc, char *argv[])
 
 	//send(sockfd, "Dressing!\n", 14, 0);
 	
-
-	if ((numbytes=recv(sockfd, buf, MAXDATASIZE, 0)) == -1) {
-		perror("recv");
-		exit(1);
-	}
-
-	buf[numbytes] = '\0';
-
-	printf("Received: %s",buf);
 
 	close(sockfd);
 
