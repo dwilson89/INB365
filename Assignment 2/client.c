@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
 
 				
 				send(sockfd, searchTerm, SEARCHTERMLENGTH, 0);
-				
+				int resultRetrieved = 0;
 
 				// While still receiving messages, keep looping
 				while(recv(sockfd, &buf, sizeof(struct CalorieEntry), 0) != -1){
@@ -130,9 +130,14 @@ int main(int argc, char *argv[])
 					if(strstr(buf.name, "End Message")){
 						break;
 					}
+					resultRetrieved = 1;
 					PrintFood(buf);
 				} 
-				// TODO: Output Response to user
+
+
+				if(!resultRetrieved){
+					printf("No food item found.\nPlease check your spelling and try again.\n\n");
+				}
 
 
 				break;
