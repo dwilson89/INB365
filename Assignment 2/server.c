@@ -267,6 +267,9 @@ void CreateCalorieEntry(char line[256]){
 	count++;
 	} 
 	
+
+	//AddNewItemArray(newEntry, 0);
+
 	// Save the current food's data into the array of entries and increment the counter for entries
 	calorieEntries[entriesAdded] = newEntry;
 

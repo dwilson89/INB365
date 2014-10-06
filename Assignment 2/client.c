@@ -24,6 +24,7 @@
 #define TRUE 1
 #define FALSE 0 
 
+#define NEW_ITEM_LENGTH 256 // The maximum length of the search term
 
 // Struct to hold an entry from calories.csv
 
@@ -102,11 +103,13 @@ int main(int argc, char *argv[])
 	printf("Connection Established\n");
 
 	// TODO: Finish Main Loop
-
+	
+	// creates an array for a new item to be added
+	char *newItem;
+	
 	while(keep_running){
 
-
-		printf("Enter the food name to search for, or 'q' to quit:\n");
+		printf("Enter the food name to search for, 'a' to add a new food item, or 'q' to quit:\n");
 
 		while(1){
 			char searchTerm[SEARCHTERMLENGTH];  // Buffer to store the search term
@@ -118,30 +121,55 @@ int main(int argc, char *argv[])
 				if(strcmp("q\n", searchTerm) == 0 || strcmp("Q\n", searchTerm) == 0){
 					// TODO: More graceful exit
 					exit(0);
-				}
-
-				
-				send(sockfd, searchTerm, SEARCHTERMLENGTH, 0);
-				int resultRetrieved = 0;
-
-				// While still receiving messages, keep looping
-				while(recv(sockfd, &buf, sizeof(struct CalorieEntry), 0) != -1){
+				} else if(strcmp("a\n", searchTerm) == 0 || strcmp("A\n", searchTerm) == 0){
 					
-					if(strstr(buf.name, "End Message")){
-						break;
+					// Allocate the memory for the new item
+					newItem = malloc(NEW_ITEM_LENGTH * sizeof(struct char));				
+
+					// User is prompted with this message:
+					printf("Enter the new item and its attributes in this format (minus the brackets): (Food name,Measure,Weight,Kcal,Fat,Carbo,Protein)\n");
+
+					// Get user input
+					if(fgets(newItem, sizeof(newItem), stdin)){
+						
+						// Send a request for an add new item - a will indicate it is a search
+						send(sockfd, "a", 1, 0);
+					
+						// Send the data
+						send(sockfd, &newItem, NEW_ITEM_LENGTH, 0);
+
+					} else {
+						printf("An Error has occured in your new item, please try again\n\n");
 					}
-					resultRetrieved = 1;
-					PrintFood(buf);
-				} 
 
+					// Free up the newItem
+					free(newItem);
+				
+				} else { // The request is a search term
 
-				if(!resultRetrieved){
-					printf("No food item found.\nPlease check your spelling and try again.\n\n");
+					// Send a request for a search - s will indicate it is a search
+					send(sockfd, "s", 1, 0);
+
+					send(sockfd, searchTerm, SEARCHTERMLENGTH, 0);
+					int resultRetrieved = 0;
+
+					// While still receiving messages, keep looping
+					while(recv(sockfd, &buf, sizeof(struct CalorieEntry), 0) != -1){
+					
+						if(strstr(buf.name, "End Message")){
+						break;
+						}
+						resultRetrieved = 1;
+						PrintFood(buf);
+					} 
+
+					if(!resultRetrieved){
+						printf("No food item found.\nPlease check your spelling and try again.\n\n");
+					}
+
+					break;
+
 				}
-
-
-				break;
-
 			}
 			else{
 				printf("An Error has occured in your search term, please try again\n\n");
@@ -151,14 +179,10 @@ int main(int argc, char *argv[])
 
 		}
 		//close(sockfd);
-		
 	}
-
-	
 
 	//send(sockfd, "Dressing!\n", 14, 0);
 	
-
 	close(sockfd);
 
 	return 0;
