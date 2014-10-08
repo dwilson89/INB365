@@ -1,10 +1,26 @@
+#define NEW_ITEM_LENGTH 256
+
+struct CalorieEntry * calorieEntries[CALORIESENTRIES];
+
+void InitialiseCalarieEntries(){
+
+	int i = 0;
+		for(i = 0; i < CALORIESENTRIES; i++){
+			calorieEntries[i] = malloc(sizeof(struct CalorieEntry));
+			calorieEntries[i] = NULL;
+	}
+
+}
 
 void ProcessConnection(){
 
 	int currentSocket = NULL;
 
-	char request[1];
+	char request[2];
 	int numbytes;
+
+	char searchTerm[SEARCHTERMLENGTH];
+	char newItem[NEW_ITEM_LENGTH];
 
 	while(1){
 
@@ -21,18 +37,38 @@ void ProcessConnection(){
 				exit(1);
 			}
 			
+			request[numbytes] = '\0';
+
 			// its a search request
 			if(strcmp("s", request) == 0){
 
-				// grab the search term
-				// look for the item
-				// send back the response
+				if ((numbytes=recv(currentSocket, searchTerm, SEARCHTERMLENGTH, 0)) == -1) {
+					perror("recv");
+					exit(1);
+				}
 
+				searchTerm[numbytes] = '\0';
+
+				printf("Received: %s",searchTerm);
+
+				SearchForItem(currentSocket, searchTerm);
+					
 			} else if(strcmp("a", request) == 0) // its a add new item request
 
 				// grab the new item
+				if ((numbytes=recv(currentSocket, newItem, NEW_ITEM_LENGTH, 0)) == -1) {
+					perror("recv");
+					exit(1);
+				}
+
+				newItem[numbytes] = '\0';
+
+				printf("Received: %s",newItem);
+
 				// create a new item
-				// add it to the array in the correct order
+				CreateCalorieEntry(newItem);
+
+				printf("%s has been added", calorieEntries[(entriesAdded - 1)]->name);
 			}
 
 			// Close the current connection
@@ -92,7 +128,24 @@ void IntialiseQueue(){
 // Function to Create the thread pool
 void CreateThreadPool(){
 
+	// Create PIDs for each of the threads
+	pthread_t threadPool[10];
 
+	int rc;
+
+	int i;
+
+	for(i = 0; i < BACKLOG; i++){
+		
+		rc = pthread_create(&threads[0], NULL, ProcessConnection, 0);
+		
+		if(rc){
+			// Error has occured in creating thread
+			printf("\nERROR: Return Code from pthread_create is %d\n", rc);
+			exit(-1);
+		}
+
+	}
 }
 
 // Function to add the new item to the correct spot in the array (alphabetically)
