@@ -19,16 +19,27 @@
 #include <sys/socket.h> 
 #include <sys/wait.h> 
 #include <unistd.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 #define MYPORT 12345    /* the default port users will be connecting to */
 #define BACKLOG 10     /* how many pending connections queue will hold */
 #define CALORIESENTRIES 959 // Number of unique entries in calories.csv, ideally would be dyanmic
 #define SEARCHTERMLENGTH 128 /* max number of bytes we can get at once */
 #define TRUE 1
-#define FALSE 1
-
+#define FALSE 0
+#define NEW_ITEM_LENGTH 256
 
 int keep_running = TRUE;
+
+//pthread_mutex_t rw_mutex;
+//pthread_mutex_t mutex;
+pthread_mutex_t q_mutex;
+
+sem_t rw_mutex;
+//sem_t q_mutex;
+sem_t mutex;
+int read_count = 0;
 
 
 // Struct to hold an entry from calories.csv
@@ -46,9 +57,18 @@ struct CalorieEntry {
 };
 #pragma pack(0)
 
+// Struct for a Queue
+struct Queue {
+
+	int socketQueue[BACKLOG];
+	int frontOfQueue;
+	int nextFreeSpot;
+
+};
+
 // Array to hold all the entries
 
-struct CalorieEntry calorieEntries[CALORIESENTRIES];
+struct CalorieEntry * calorieEntries[CALORIESENTRIES];
 
 // Tracks how many entries have been added so far
 int entriesAdded = 0;
@@ -56,6 +76,199 @@ int entriesAdded = 0;
 // Stores the minimum number of commas for a given line in the calories.csv file (i.e. the
 // the number of commas if the name doesn't include any commas in it)
 int minCommas = 6;
+
+// Queue for the threadpool
+struct Queue comQueue;
+
+// Function to Process the Connection
+void ProcessConnection(){
+
+	int currentSocket = NULL;
+
+	char request[2];
+	int numbytes;
+
+	char searchTerm[SEARCHTERMLENGTH];
+	char newItem[NEW_ITEM_LENGTH];
+
+	while(1){
+
+		//throw a mutex around this
+
+		// Grab next item in queue
+		pthread_mutex_lock(&q_mutex);
+		//sem_wait(&q_mutex);
+		currentSocket = GrabNextItemInQueue();
+		//sem_post(&q_mutex);
+		pthread_mutex_unlock(&q_mutex);
+
+		if(currentSocket !=NULL){
+			
+			// Check the first recieved message
+			if ((numbytes=recv(currentSocket, request, 1, 0)) == -1) {
+				perror("recv");
+				exit(1);
+			}
+			
+			request[numbytes] = '\0';
+
+			// its a search request
+			if(strcmp("s", request) == 0){
+
+				if ((numbytes=recv(currentSocket, searchTerm, SEARCHTERMLENGTH, 0)) == -1) {
+					perror("recv");
+					exit(1);
+				}
+
+				searchTerm[numbytes] = '\0';
+
+				printf("Received: %s",searchTerm);
+
+				SearchForItem(currentSocket, searchTerm);
+					
+			} else if(strcmp("a", request) == 0) // its a add new item request
+
+				// grab the new item
+				if ((numbytes=recv(currentSocket, newItem, NEW_ITEM_LENGTH, 0)) == -1) {
+					perror("recv");
+					exit(1);
+				}
+
+				newItem[numbytes] = '\0';
+
+				printf("Received: %s",newItem);
+
+				// create a new item
+				CreateCalorieEntry(newItem);
+
+				printf("%s has been added", calorieEntries[(entriesAdded - 1)]->name);
+			}
+
+			// Close the current connection
+			close(current_fd);
+		}
+	}
+}
+
+// Function to add the new item to the correct spot in the array (alphabetically)
+void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
+	
+	if(isNewEntry){
+		
+
+		int isSorted = 0;
+		int currentIndex = 0;
+		int comparison = 0;
+
+		// Read from the array
+		sem_wait(&mutex)
+		read_count++;
+		if(read_count == 1)
+			wait(&rw_mutex);
+		sem_post(&mutex);
+
+		// Create a temp array and give it some memory, and copy in the old array
+		struct CalorieEntry *tmpArray[entriesAdded];
+		int i = 0;
+		for(i = 0; i < entriesAdded; i++){
+			tmpArray[i] = malloc(sizeof(struct CalorieEntry));
+			tmpArray[i] = calorieEntries[i];
+		}
+
+		sem_wait(&mutex);
+		read_count--;
+		if(read_count == 0)
+			sem_post(&rw_mutex);
+		sem_post(&mutex);
+		
+		// Increment the entries to include the new addition
+		entriesAdded++;
+		
+		// Lock read-write mutex
+		//pthread_mutex_lock(&rw_mutex);
+		sem_wait(&rw_mutex)
+		
+		// Resize calorieEntry to add in the new item
+		calorieEntries = (CalorieEntry *)realloc(CalorieEntry, entriesAdded);
+
+		// While not sorted
+		while(!isSorted){
+
+			// Compare the new entry against the current position entry
+			comparison = CompareItems(newEntry, tmpArray[currentIndex]);
+
+			// If it comes before the current item alphabetically add it in that
+			// position and set the flag to exit the loop
+			if(comparison == 1){
+				calorieEntries[currentIndex] = newEntry;
+				printf("%s\n", calorieEntries[currentIndex]->name);
+				isSorted = 1;
+			} else {
+				calorieEntries[currentIndex] = tmpArray[currentIndex];
+
+				// free up none used memory
+				free(tmpArray[currentIndex]);
+			}
+
+			currentIndex++;
+		}
+
+		// Shift the rest of the items down into thier new positions
+		for (i = currentIndex; i < entriesAdded; i++){
+
+			calorieEntries[i] = tmpArray[(i-1)];
+			free(tmpArray[(i-1)]); // free up none used memory
+		}
+		
+		//pthread_mutex_unlock(&rw_mutex);
+		sem_post(&rw_mutex);
+		// not sure if I need this
+		free(tmpArray);
+		// Unlock read-write mutex
+		
+
+	} else {
+
+		// Save the current food's data into the array of entries and increment the counter for entries
+		calorieEntries[entriesAdded] = newEntry;
+
+		printf("%s\n", calorieEntries[entriesAdded]->name); // I assume this is here for debugging
+		entriesAdded++;
+	}
+	
+}
+
+// Function to compare two entries in order to determine position
+int CompareItems(struct CalorieEntry * newEntry, struct CalorieEntry * oldEntry){
+
+	int compare = strcmp(newEntry->name, oldEntry->name);
+
+	int isNewEntrySpot = 0;
+
+	//check names
+	if(compare == 0){//if equal check the next property and so forth
+
+		compare = strcmp(newEntry->measure, oldEntry->measure);
+
+		if(compare == 0){
+
+			isNewEntrySpot = 1;
+
+		}
+	} 
+
+	if (compare < 0){
+
+		isNewEntrySpot = 1;		
+
+	} else if (compare > 0){
+
+		isNewEntrySpot = 0;
+	}
+
+	//check the next and so forth till a conclusion is found
+	return isNewEntrySpot;
+}
 
 
 // Returns 1 if the search term is found in the name, 0 if it is not
@@ -85,7 +298,6 @@ int CompareNames(char searchTerm[128], char foodName[128], int numSpaces){
 
 }
 
-
 // Searches for an item and sends results to client
 void SearchForItem(int fd, char searchTerm[128]){
 
@@ -97,22 +309,28 @@ void SearchForItem(int fd, char searchTerm[128]){
 		}
 	}
 	
+	// Apply reader solution
+	// reader-writer locked for reader
+	sem_wait(&mutex)
+	read_count++;
+	if(read_count == 1)
+		wait(&rw_mutex);
+	sem_post(&mutex);
+
 	// Cycle through all entries
 	for (int i = 0; i < CALORIESENTRIES; i++){
 		// Count how many spaces are in the name of the current food
 		int nameSpaceCount = 1;	
 
-		for (int j = 0; j < strlen(calorieEntries[i].name); j++){
-			if(calorieEntries[i].name[j] == ' '){
+		for (int j = 0; j < strlen(calorieEntries[i]->name); j++){
+			if(calorieEntries[i]->name[j] == ' '){
 				nameSpaceCount++;
 			}
-
 		}
 
 		// The search term has to be equal to or shorter than the name for
 		// the search to work
 		if (searchSpaceCount <= nameSpaceCount){
-
 
 			// Because the algoirthm makes no practical sense, we start at the start of the word and 
 			// ignore the same search term later in the name. I.e., searching for "cake" should return
@@ -125,13 +343,13 @@ void SearchForItem(int fd, char searchTerm[128]){
 			// As it's a pointer, the original name is overwritten by the shorter name, so we store
 			// the original name here so we can recall it later once we've checked the shorter name
 			char originalName[128];
-			strcpy(originalName, calorieEntries[i].name);
+			strcpy(originalName, calorieEntries[i]->name);
 
 			// String Token
 			char *token;
 
 			// Create the initial Token
-			token = strtok(calorieEntries[i].name, " ");
+			token = strtok(calorieEntries[i]->name, " ");
 
 			// Copy the intial token into the shortened name
 			strcpy(shortenedName, token);
@@ -169,31 +387,41 @@ void SearchForItem(int fd, char searchTerm[128]){
 
 			
 				// Reset the food name back to it's original name
-				strcpy(calorieEntries[i].name, originalName);
+				strcpy(calorieEntries[i]->name, originalName);
 
 				// Send the result to the client
 				send(fd, &calorieEntries[i], sizeof(calorieEntries[i]), 0);
 			}
-			strcpy(calorieEntries[i].name, originalName);
+			strcpy(calorieEntries[i]->name, originalName);
 
 		}
 	}
+	
+	// reader-writer unlocked for reader
+	sem_wait(&mutex);
+	read_count--;
+	if(read_count == 0)
+		sem_post(&rw_mutex);
+	sem_post(&mutex);
 
 	struct CalorieEntry endMessage;
-	strcpy(endMessage.name, "End Message");
+	strcpy(endMessage->name, "End Message");
 	send(fd, &endMessage, sizeof(endMessage), 0);
 
 
 }
 
 // Create a new CalorieEntry struct from the given line from the Calories.csv file
-void CreateCalorieEntry(char line[256]){
+void CreateCalorieEntry(char line[256], int entryType){
 	// This entry will contain food data for the new entry
-	struct CalorieEntry newEntry;
+	struct CalorieEntry * newEntry;
+
+	// Assign memory to the newly
+	newEntry =  malloc(sizeof(struct CalorieEntry));
 
 	// Clear strings
-	memset(newEntry.name, 0, sizeof(newEntry.name));
-	memset(newEntry.measure, 0, sizeof(newEntry.measure));
+	memset(newEntry->name, 0, sizeof(newEntry->name));
+	memset(newEntry->measure, 0, sizeof(newEntry->measure));
 	
 	// Count the number of "extra" commas in the line, which will be used when creating the name
 	int commaCount = 0;
@@ -217,12 +445,11 @@ void CreateCalorieEntry(char line[256]){
 	token = strtok(line, ",");
 
 	// Copy the intial token into the name of the current food entry
-	strcpy(newEntry.name, token);
+	strcpy(newEntry->name, token);
 
 	// Calculate how many commas are included in the name of the food, as these are in addition
 	// to the usual 6 commas included, they are counted as negative entries
 	int count = 0 -commaCount + minCommas;
-	
 
 	// While there is still text in the line that hasn't been processed
 
@@ -235,9 +462,9 @@ void CreateCalorieEntry(char line[256]){
 		if(count < 0){
 			//printf("Less tha zero\n");
 			// Add in the comma and space as they won't be included in the token
-			strcat(newEntry.name, ", ");
+			strcat(newEntry->name, ", ");
 			// Add the token to the name of the food
-			strcat(newEntry.name, token);
+			strcat(newEntry->name, token);
 		}
 		else{
 			//printf("%s\n", newEntry.name);
@@ -245,42 +472,30 @@ void CreateCalorieEntry(char line[256]){
 				// Once the name is completed, the next 6 values should only have a single
 				// comma seperating them, so can be populated using a switch and counter
 				case 0:
-					strcpy(newEntry.measure, token);
+					strcpy(newEntry->measure, token);
 					break;
 				case 1:
-					newEntry.weight = atoi(token);
+					newEntry->weight = atoi(token);
 					break;
 				case 2:
-					newEntry.cal = atoi(token);
+					newEntry->cal = atoi(token);
 					break;		
 				case 3:
-					newEntry.fat = atoi(token);
+					newEntry->fat = atoi(token);
 					break;				
 				case 4:
-					newEntry.carb = atoi(token);
+					newEntry->carb = atoi(token);
 					break;
 				case 5:
-					newEntry.protein = atoi(token);
+					newEntry->protein = atoi(token);
 					break;
 			}
 		}
 	count++;
 	} 
-	
 
-	//AddNewItemArray(newEntry, 0);
-
-	// Save the current food's data into the array of entries and increment the counter for entries
-	calorieEntries[entriesAdded] = newEntry;
-
-	//char originalName[128];
-	//strcpy(originalName, calorieEntries[entriesAdded].name);
-	//printf("%s\n",strtok(calorieEntries[entriesAdded].name, ","));
-	//strcpy(calorieEntries[entriesAdded].name, originalName);
-	printf("%s\n", calorieEntries[entriesAdded].name);
-	entriesAdded++;
-
-	
+	// Add it to the array, entryType indicates its an original item
+	AddNewItemArray(newEntry, entryType);
 }
 
 
@@ -296,7 +511,10 @@ void LoadCSV(){
 		while(fgets(line, sizeof(line), file) != NULL){
 			// Don't include comments
 			if(line[0] != '#'){
-				CreateCalorieEntry(line);
+				
+				// Create new calorie entry
+				CreateCalorieEntry(line, 0);
+				
 			}
 		}		
 		fclose(file);
@@ -304,6 +522,72 @@ void LoadCSV(){
 
 }
 
+// Function to Grab next item from the Queue
+int GrabNextItemInQueue(){
+
+	int nextSocket = comQueuesocketQueue[comQueue.frontOfQueue];
+
+	comQueue.socketQueue[comQueue.frontOfQueue] = NULL;
+
+	if(nextSocket != NULL){
+		comQueue.frontOfQueue = (comQueue.frontOfQueue + 1) % BACKLOG;
+	}
+
+	return *nextSocket;
+}
+
+// Function to add new connections to the queue
+void AddNewItemToQueue(int socket){
+
+	int newSocket = socket;
+
+	comQueue.socketQueue[comQueue.nextFreeSpot] = newSocket;
+
+	comQueue.nextFreeSpot = (comQueue.nextFreeSpot + 1) % BACKLOG;
+
+}
+
+// Function to Create the thread pool
+void CreateThreadPool(pthread_t * threadPool){
+
+	int rc;
+	int i;
+
+	for(i = 0; i < BACKLOG; i++){
+		
+		rc = pthread_create(&threads[i], NULL, ProcessConnection, 0);
+		
+		if(rc){
+			// Error has occured in creating thread
+			printf("\nERROR: Return Code from pthread_create is %d\n", rc);
+			exit(-1);
+		}
+	}
+}
+
+// Function to intialise the Queue
+void InitialiseQueue(){
+
+	int i;
+	for( i = 0; i < BACKLOG; i++){
+
+		comQueue.socketQueue[i] = NULL;
+	}	
+
+	comQueue.frontOfQueue = 0;
+	comQueue.nextFreeSpot = 1;
+}
+
+// Function to initialise the Calorie Entries list
+void InitialiseCalarieEntries(){
+
+	int i = 0;
+		for(i = 0; i < CALORIESENTRIES; i++){
+			calorieEntries[i] = malloc(sizeof(struct CalorieEntry));
+			calorieEntries[i] = NULL;
+	}
+
+}
 
 int main(int argc, char *argv[])
 {
@@ -313,13 +597,27 @@ int main(int argc, char *argv[])
 	socklen_t sin_size;
 	char searchTerm[SEARCHTERMLENGTH];
 
+	// Create PIDs for each of the threads
+	pthread_t threadPool[10];
+	CreateThreadPool(threadPool);
+	
+	// Initialize the locks
+	//pthread_mutex_init(&rw_mutex, NULL);
+	//pthread_mutex_init(&mutex, NULL);
+	thread_mutex_init(&q_mutex, NULL);
+	sem_init(&rw_mutex,0,1); // rw_mutex - Starts at 1
+	//sem_init(&q_mutex,0,1); // Full - Starts at 1
+	sem_init(&mutex,0,1); // Runway - Starts at 1
+
+	// Initialise queue and calories array
+	InitialiseCalarieEntries();
+	InitialiseQueue();
+
 	/* generate the socket */
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		perror("socket");
 		exit(1);
 	}
-
-
 
 	/* generate the end point */
 	my_addr.sin_family = AF_INET;         /* host byte order */
@@ -360,7 +658,7 @@ int main(int argc, char *argv[])
 
 	/* repeat: accept, send, close the connection */
 	/* for every accepted connection, use a sepetate process or thread to serve it */
-	while(1) {  /* main accept() loop */
+	while(keep_running) {  /* main accept() loop */
 		sin_size = sizeof(struct sockaddr_in);
 		if ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr, \
 		&sin_size)) == -1) {
@@ -368,33 +666,15 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-		while(keep_running){
-			if ((numbytes=recv(new_fd, searchTerm, SEARCHTERMLENGTH, 0)) == -1) {
-			perror("recv");
-			exit(1);
-			}
-
-			searchTerm[numbytes] = '\0';
-
-			printf("Received: %s",searchTerm);
-
-			SearchForItem(new_fd, searchTerm);
-
-		}
-
-
 		printf("server: got connection from %s\n", \
 			inet_ntoa(their_addr.sin_addr));
-		if (!fork()) { /* this is the child process */
-			//if (send(new_fd, "Test!""", 14, 0) == -1)
-		/*
-			if (send(new_fd, calorieEntries[0].name, sizeof(calorieEntries[0].name), 0) == -1)
-				perror("send");
-			close(new_fd); */
-			exit(0);
-		}
-		//close(new_fd);  /* parent doesn't need this */
 
-		while(waitpid(-1,NULL,WNOHANG) > 0); /* clean up child processes */
+		// Add the new connection to the queue
+		pthread_mutex_lock(&q_mutex);
+		//sem_wait(&q_mutex);
+		AddNewItemToQueue(new_fd);
+		//sem_post(&q_mutex);
+		pthread_mutex_unlock(&q_mutex);
+
 	}
 }
