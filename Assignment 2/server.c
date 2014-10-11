@@ -67,7 +67,6 @@ struct Queue {
 };
 
 // Array to hold all the entries
-
 struct CalorieEntry * calorieEntries[CALORIESENTRIES];
 
 // Tracks how many entries have been added so far
@@ -80,75 +79,55 @@ int minCommas = 6;
 // Queue for the threadpool
 struct Queue comQueue;
 
-// Function to Process the Connection
-void ProcessConnection(){
+// Function to update and save the .csv file
+void UpdateAndSaveFile(){
 
-	int currentSocket = NULL;
+	FILE *file = fopen("calories.csv","r+");
+	fpos_t pos;
 
-	char request[2];
-	int numbytes;
+	int keep_reading = 1;
 
-	char searchTerm[SEARCHTERMLENGTH];
-	char newItem[NEW_ITEM_LENGTH];
+	if(file != NULL){
 
-	while(1){
+		char line[256];
 
-		//throw a mutex around this
+		// Read in the '#' lines
+		while((fgets(lin, sizeof(line),file) != NULL) &&(keep_reading == 1)){
 
-		// Grab next item in queue
-		pthread_mutex_lock(&q_mutex);
-		//sem_wait(&q_mutex);
-		currentSocket = GrabNextItemInQueue();
-		//sem_post(&q_mutex);
-		pthread_mutex_unlock(&q_mutex);
+			if(line[0] != '#'){
 
-		if(currentSocket !=NULL){
-			
-			// Check the first recieved message
-			if ((numbytes=recv(currentSocket, request, 1, 0)) == -1) {
-				perror("recv");
-				exit(1);
+				keep_reading = 0;
+
+			} else {
+
+				// Save the last known position (should be the start of the next line)
+				fgetpos(file,&pos);
 			}
-			
-			request[numbytes] = '\0';
-
-			// its a search request
-			if(strcmp("s", request) == 0){
-
-				if ((numbytes=recv(currentSocket, searchTerm, SEARCHTERMLENGTH, 0)) == -1) {
-					perror("recv");
-					exit(1);
-				}
-
-				searchTerm[numbytes] = '\0';
-
-				printf("Received: %s",searchTerm);
-
-				SearchForItem(currentSocket, searchTerm);
-					
-			} else if(strcmp("a", request) == 0) // its a add new item request
-
-				// grab the new item
-				if ((numbytes=recv(currentSocket, newItem, NEW_ITEM_LENGTH, 0)) == -1) {
-					perror("recv");
-					exit(1);
-				}
-
-				newItem[numbytes] = '\0';
-
-				printf("Received: %s",newItem);
-
-				// create a new item
-				CreateCalorieEntry(newItem);
-
-				printf("%s has been added", calorieEntries[(entriesAdded - 1)]->name);
-			}
-
-			// Close the current connection
-			close(current_fd);
 		}
+
+		// Set the last know position to current position
+		fsetpos(file, &pos);
+
+		// Start adding in every element back into the file in the new order
+		int i;
+		for(i = 0l i < entriesAdded; i++){
+
+			// Turn each entrie back into a string
+			sprintf(line, "%s,%s,%d,%d,%d,%d,%d", caloriesEntries[i]->name,\
+				caloriesEntries[i]->measure,caloriesEntries[i]->weight,caloriesEntries[i]->cal,\
+				caloriesEntries[i]->fat,caloriesEntries[i]->carb,caloriesEntries[i]->protein);
+
+			// Add each entry to the file
+			fputs(line, file);
+		}
+
+		// Close the file
+		fclose(file);
 	}
 }
+
+
+
 
 // Function to add the new item to the correct spot in the array (alphabetically)
 void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
@@ -161,10 +140,10 @@ void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
 		int comparison = 0;
 
 		// Read from the array
-		sem_wait(&mutex)
+		sem_wait(&mutex);
 		read_count++;
 		if(read_count == 1)
-			wait(&rw_mutex);
+			sem_wait(&rw_mutex);
 		sem_post(&mutex);
 
 		// Create a temp array and give it some memory, and copy in the old array
@@ -186,7 +165,7 @@ void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
 		
 		// Lock read-write mutex
 		//pthread_mutex_lock(&rw_mutex);
-		sem_wait(&rw_mutex)
+		sem_wait(&rw_mutex);
 		
 		// Resize calorieEntry to add in the new item
 		calorieEntries = (CalorieEntry *)realloc(CalorieEntry, entriesAdded);
@@ -311,10 +290,10 @@ void SearchForItem(int fd, char searchTerm[128]){
 	
 	// Apply reader solution
 	// reader-writer locked for reader
-	sem_wait(&mutex)
+	sem_wait(&mutex);
 	read_count++;
 	if(read_count == 1)
-		wait(&rw_mutex);
+		sem_wait(&rw_mutex);
 	sem_post(&mutex);
 
 	// Cycle through all entries
@@ -405,7 +384,7 @@ void SearchForItem(int fd, char searchTerm[128]){
 	sem_post(&mutex);
 
 	struct CalorieEntry endMessage;
-	strcpy(endMessage->name, "End Message");
+	strcpy(endMessage.name, "End Message");
 	send(fd, &endMessage, sizeof(endMessage), 0);
 
 
@@ -522,10 +501,83 @@ void LoadCSV(){
 
 }
 
+// Function to Process the Connection
+void* ProcessConnection(){
+
+	int currentSocket = NULL;
+
+	char request[2];
+	int numbytes;
+
+	char searchTerm[SEARCHTERMLENGTH];
+	char newItem[NEW_ITEM_LENGTH];
+
+	while(1){
+
+		//throw a mutex around this
+
+		// Grab next item in queue
+		pthread_mutex_lock(&q_mutex);
+		//sem_wait(&q_mutex);
+		currentSocket = GrabNextItemInQueue();
+		//sem_post(&q_mutex);
+		pthread_mutex_unlock(&q_mutex);
+
+		if(currentSocket != NULL){
+			
+			// Check the first recieved message
+			if ((numbytes=recv(currentSocket, request, 1, 0)) == -1) {
+				perror("recv");
+				exit(1);
+			}
+			
+			request[numbytes] = '\0';
+
+			// its a search request
+			if(strcmp("s", request) == 0){
+
+				if ((numbytes=recv(currentSocket, searchTerm, SEARCHTERMLENGTH, 0)) == -1) {
+					perror("recv");
+					exit(1);
+				}
+
+				searchTerm[numbytes] = '\0';
+
+				printf("Received: %s",searchTerm);
+
+				SearchForItem(currentSocket, searchTerm);
+					
+			} else if(strcmp("a", request) == 0) {// its a add new item request
+
+				// grab the new item
+				if ((numbytes=recv(currentSocket, newItem, NEW_ITEM_LENGTH, 0)) == -1) {
+					perror("recv");
+					exit(1);
+				}
+
+				newItem[numbytes] = '\0';
+
+				printf("Received: %s",newItem);
+
+				// create a new item
+				CreateCalorieEntry(newItem, 1);
+
+				// Send confirmation back to the client
+				// send(currentSocket, calorieEntries[(entriesAdded - 1)]->name, sizeof(calorieEntries[(entriesAdded - 1)]->name), 0);
+
+				printf("%s has been added", calorieEntries[(entriesAdded - 1)]->name);
+			}
+
+			// Close the current connection
+			close(currentSocket);
+		}
+	}
+}
+
 // Function to Grab next item from the Queue
 int GrabNextItemInQueue(){
 
-	int nextSocket = comQueuesocketQueue[comQueue.frontOfQueue];
+	int nextSocket = comQueue.socketQueue[comQueue.frontOfQueue];
 
 	comQueue.socketQueue[comQueue.frontOfQueue] = NULL;
 
@@ -533,7 +585,7 @@ int GrabNextItemInQueue(){
 		comQueue.frontOfQueue = (comQueue.frontOfQueue + 1) % BACKLOG;
 	}
 
-	return *nextSocket;
+	return nextSocket;
 }
 
 // Function to add new connections to the queue
@@ -555,7 +607,7 @@ void CreateThreadPool(pthread_t * threadPool){
 
 	for(i = 0; i < BACKLOG; i++){
 		
-		rc = pthread_create(&threads[i], NULL, ProcessConnection, 0);
+		rc = pthread_create(&threadPool[i], NULL, ProcessConnection, 0);
 		
 		if(rc){
 			// Error has occured in creating thread
@@ -588,6 +640,8 @@ void InitialiseCalarieEntries(){
 	}
 
 }
+
+
 
 int main(int argc, char *argv[])
 {

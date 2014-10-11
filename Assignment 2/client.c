@@ -111,20 +111,21 @@ int main(int argc, char *argv[])
 
 		printf("Enter the food name to search for, 'a' to add a new food item, or 'q' to quit:\n");
 
-		while(1){
+		while(1) {
 			char searchTerm[SEARCHTERMLENGTH];  // Buffer to store the search term
 			char q[3] = "q\n";
 			memset(&buf, 0, sizeof(buf));
 			
-			if(fgets(searchTerm, sizeof(searchTerm), stdin)){
+			if(fgets(searchTerm, sizeof(searchTerm), stdin)) {
 
 				if(strcmp("q\n", searchTerm) == 0 || strcmp("Q\n", searchTerm) == 0){
 					// TODO: More graceful exit
 					exit(0);
-				} else if(strcmp("a\n", searchTerm) == 0 || strcmp("A\n", searchTerm) == 0){
+
+				} else if(strcmp("a\n", searchTerm) == 0 || strcmp("A\n", searchTerm) == 0) {
 					
 					// Allocate the memory for the new item
-					newItem = malloc(NEW_ITEM_LENGTH * sizeof(struct char));				
+					newItem = malloc(NEW_ITEM_LENGTH * sizeof(char));				
 
 					// User is prompted with this message:
 					printf("Enter the new item and its attributes in this format (minus the brackets): (Food name,Measure,Weight,Kcal,Fat,Carbo,Protein)\n");
@@ -157,7 +158,7 @@ int main(int argc, char *argv[])
 					while(recv(sockfd, &buf, sizeof(struct CalorieEntry), 0) != -1){
 					
 						if(strstr(buf.name, "End Message")){
-						break;
+							break;
 						}
 						resultRetrieved = 1;
 						PrintFood(buf);
@@ -170,13 +171,12 @@ int main(int argc, char *argv[])
 					break;
 
 				}
-			}
-			else{
+			
+			} else {
 				printf("An Error has occured in your search term, please try again\n\n");
 				break;
 			}
 			break;
-
 		}
 		//close(sockfd);
 	}
