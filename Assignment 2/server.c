@@ -150,7 +150,7 @@ void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
 		int i = 0;
 		for(i = 0; i < entriesAdded; i++){
 			tmpArray[i] = malloc(sizeof(struct CalorieEntry));
-			tmpArray[i] = calorieEntries[i];
+			*tmpArray[i] = *calorieEntries[i];
 		}
 
 		sem_wait(&mutex);
