@@ -134,7 +134,6 @@ void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
 	
 	if(isNewEntry){
 		
-
 		int isSorted = 0;
 		int currentIndex = 0;
 		int comparison = 0;
@@ -180,7 +179,7 @@ void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
 			// position and set the flag to exit the loop
 			if(comparison == 1){
 				calorieEntries[currentIndex] = newEntry;
-				printf("%s\n", calorieEntries[currentIndex]->name);
+				//printf("%s\n", calorieEntries[currentIndex]->name);
 				isSorted = 1;
 			} else {
 				calorieEntries[currentIndex] = tmpArray[currentIndex];
@@ -198,13 +197,13 @@ void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
 			calorieEntries[i] = tmpArray[(i-1)];
 			free(tmpArray[(i-1)]); // free up none used memory
 		}
-		
+
+		printf("%s has been added", calorieEntries[currentIndex]->name);
 		//pthread_mutex_unlock(&rw_mutex);
 		sem_post(&rw_mutex);
 		// not sure if I need this
 		free(tmpArray);
 		// Unlock read-write mutex
-		
 
 	} else {
 
@@ -562,10 +561,8 @@ void* ProcessConnection(){
 				// create a new item
 				CreateCalorieEntry(newItem, 1);
 
-				// Send confirmation back to the client
-				// send(currentSocket, calorieEntries[(entriesAdded - 1)]->name, sizeof(calorieEntries[(entriesAdded - 1)]->name), 0);
+				// Potential extension add code to send a message back for confirmation
 
-				printf("%s has been added", calorieEntries[(entriesAdded - 1)]->name);
 			}
 
 			// Close the current connection
