@@ -120,6 +120,8 @@ int main(int argc, char *argv[])
 
 			if(strcmp("q\n", searchTerm) == 0 || strcmp("Q\n", searchTerm) == 0){
 				// TODO: More graceful exit
+				// Send a request to close the connection - q will indicate it is a search
+				send(sockfd, "q", 1, 0);
 				exit(0);
 
 			} else if(strcmp("a\n", searchTerm) == 0 || strcmp("A\n", searchTerm) == 0) {
@@ -128,7 +130,7 @@ int main(int argc, char *argv[])
 				newItem = malloc(NEW_ITEM_LENGTH * sizeof(char));				
 
 				// User is prompted with this message:
-				printf("Enter the new item and its attributes in this format: Food name,Measure,Weight,Kcal,Fat,Carbo,Protein\n");
+				printf("Enter the new food item and its attributes in this format: Food name,Measure,Weight,Kcal,Fat,Carbo,Protein\n");
 
 				// Get user input
 				if(fgets(newItem, sizeof(newItem), stdin)){
@@ -156,25 +158,28 @@ int main(int argc, char *argv[])
 
 				int isSearchComplete = 0;
 
-				while(!isSearchComplete){
+				//while(!isSearchComplete){
 
 					// While still receiving messages, keep looping
 					while(recv(sockfd, &buf, sizeof(struct CalorieEntry), 0) != -1){
-				
+						//memset(&buf, 0, sizeof(buf));
+						
 						if(strstr(buf.name, "End Message")){
-							isSearchComplete = 1;
+							//printf("search finished");
+							//isSearchComplete = 1;
 							break;
 						}
 						resultRetrieved = 1;
+						//printf("Buff name: %s\n",buf.name);
 						PrintFood(buf);
 					} 
 
-					if(!resultRetrieved && (isSearchComplete == 1)){
+					if(!resultRetrieved){ //&& (isSearchComplete == 1)){
 						printf("No food item found.\nPlease check your spelling and try again.\n\n");
 					}
 
 					//break;
-				}
+				//}
 			}
 		
 		} else {
