@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 	// TODO: Finish Main Loop
 	
 	// creates an array for a new item to be added
-	char *newItem;
+	char newItem[NEW_ITEM_LENGTH];
 	
 	while(keep_running){
 
@@ -113,6 +113,8 @@ int main(int argc, char *argv[])
 
 		//while(1) {
 		char searchTerm[SEARCHTERMLENGTH];  // Buffer to store the search term
+		// creates an array for a new item to be added
+		char newItem[NEW_ITEM_LENGTH];
 		char q[3] = "q\n";
 		memset(&buf, 0, sizeof(buf));
 			
@@ -127,7 +129,7 @@ int main(int argc, char *argv[])
 			} else if(strcmp("a\n", searchTerm) == 0 || strcmp("A\n", searchTerm) == 0) {
 					
 				// Allocate the memory for the new item
-				newItem = malloc(NEW_ITEM_LENGTH * sizeof(char));				
+				//newItem = malloc(NEW_ITEM_LENGTH * sizeof(char));				
 
 				// User is prompted with this message:
 				printf("Enter the new food item and its attributes in this format: Food name,Measure,Weight,Kcal,Fat,Carbo,Protein\n");
@@ -146,7 +148,7 @@ int main(int argc, char *argv[])
 				}
 
 				// Free up the newItem
-				free(newItem);
+				//free(newItem);
 			
 			} else { // The request is a search term
 

@@ -260,7 +260,7 @@ void SearchForItem(int fd, char searchTerm[128]){
 void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
 	
 	if(isNewEntry){
-		
+
 		int isSorted = 0;
 		int currentIndex = 0;
 		int comparison = 0;
@@ -272,17 +272,15 @@ void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
 			sem_wait(&rw_mutex);
 		sem_post(&mutex);
 
-		printf("Create an temp array\n");
-
 		// Create a temp array and give it some memory, and copy in the old array
 		struct CalorieEntry *tmpArray[entriesAdded];
 		int i = 0;
 		for(i = 0; i < entriesAdded; i++){
 			tmpArray[i] = malloc(sizeof(struct CalorieEntry));
 			*tmpArray[i] = *calorieEntries[i];
+			//printf("%s has been added to the temp array\n", tmpArray[i]->name);
 		}
 
-		printf("Temp array Created\n");
 		sem_wait(&mutex);
 		read_count--;
 		if(read_count == 0)
@@ -295,17 +293,12 @@ void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
 		// Lock read-write mutex
 		//pthread_mutex_lock(&rw_mutex);
 		sem_wait(&rw_mutex);
-		
-		printf("resize the array\n");
 
 		// Resize calorieEntry to add in the new item
 		calorieEntries = (struct CalorieEntry **)realloc(calorieEntries, entriesAdded * sizeof(struct CalorieEntry*));
 
-		printf("assign memory for the new entry");
+		calorieEntries[entriesAdded-1] = malloc(sizeof(struct CalorieEntry));
 
-		calorieEntries[entriesAdded] = malloc(sizeof(struct CalorieEntry));
-
-		printf("sort\n");
 		// While not sorted
 		while(!isSorted){
 
@@ -319,7 +312,7 @@ void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
 				//printf("%s\n", calorieEntries[currentIndex]->name);
 				isSorted = 1;
 			} else {
-				calorieEntries[currentIndex] = tmpArray[currentIndex];
+				//calorieEntries[currentIndex] = tmpArray[currentIndex];
 
 				// free up none used memory
 				free(tmpArray[currentIndex]);
@@ -328,22 +321,19 @@ void AddNewItemArray(struct CalorieEntry * newEntry, int isNewEntry){
 			currentIndex++;
 		}
 
-		printf("new item has been added\n");
-
 		// Shift the rest of the items down into thier new positions
 		for (i = currentIndex; i < entriesAdded; i++){
 
-			calorieEntries[i] = tmpArray[(i-1)];
+			*calorieEntries[i] = *tmpArray[(i-1)];
+			//printf("entry %d out of %d: %s\n", i, entriesAdded, calorieEntries[i]->name);
 			free(tmpArray[(i-1)]); // free up none used memory
 		}
 
-		printf("The rest of the entries has been added\n");
-
-		printf("%s has been added\n", calorieEntries[currentIndex]->name);
+		//printf("%s has been added\n", calorieEntries[currentIndex-1]->name);
 		//pthread_mutex_unlock(&rw_mutex);
 		sem_post(&rw_mutex);
 		// not sure if I need this
-		free(tmpArray);
+		// free(tmpArray);
 		// Unlock read-write mutex
 
 	} else {
@@ -532,6 +522,13 @@ void UpdateAndSaveFile(){
 
 			// Add each entry to the file
 			fputs(line, file);
+
+			// Add a newline if i does not equal last entry
+			if(i != (entriesAdded-1)){
+
+				fputs("\n",file);
+			}
+
 		}
 
 		// Close the file
@@ -687,6 +684,8 @@ void InitialiseQueue(){
 // Function to initialise the Calorie Entries list
 void InitialiseCalarieEntries(){
 
+	printf("initial count: %d", initialCalEntries);
+
 	calorieEntries = malloc(initialCalEntries * sizeof(struct calorieEntries*));
 
 	int i = 0;
@@ -694,6 +693,7 @@ void InitialiseCalarieEntries(){
 			calorieEntries[i] = malloc(sizeof(struct CalorieEntry));
 			calorieEntries[i] = NULL;
 	}
+	printf("initial array created\n");
 
 }
 
