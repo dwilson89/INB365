@@ -17,6 +17,7 @@
 #include <netinet/in.h> 
 #include <sys/socket.h> 
 #include <unistd.h>
+#include <signal.h>
 
 #define PORT 12345    /* the port client will be connecting to */
 #define MAXDATASIZE 100 /* max number of bytes we can get at once */
@@ -59,6 +60,8 @@ void PrintFood(struct CalorieEntry currentFood){
 	printf("Protein (g): %d\n\n", currentFood.protein);
 
 }
+
+
 
 int main(int argc, char *argv[])
 {
@@ -121,9 +124,9 @@ int main(int argc, char *argv[])
 		if(fgets(searchTerm, sizeof(searchTerm), stdin)) {
 
 			if(strcmp("q\n", searchTerm) == 0 || strcmp("Q\n", searchTerm) == 0){
-				// TODO: More graceful exit
 				// Send a request to close the connection - q will indicate it is a search
 				send(sockfd, "q", 1, 0);
+				close(sockfd);
 				exit(0);
 
 			} else if(strcmp("a\n", searchTerm) == 0 || strcmp("A\n", searchTerm) == 0) {
