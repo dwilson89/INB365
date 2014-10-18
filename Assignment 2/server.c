@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <signal.h>
 
 #define MYPORT 12345    /* the default port users will be connecting to */
 #define BACKLOG 10     /* how many pending connections queue will hold */
@@ -28,6 +29,7 @@
 #define SEARCHTERMLENGTH 128 /* max number of bytes we can get at once */
 #define TRUE 1
 #define FALSE 0
+#define THREADPOOLLENGTH 10
 #define NEW_ITEM_LENGTH 256
 
 int keep_running = TRUE;
@@ -44,7 +46,12 @@ int read_count = 0;
 sem_t q_empty;
 sem_t q_full;
 
+int sockfd;
+
 int initialCalEntries;
+
+// Initialise Thread Pool 
+pthread_t threadPool[THREADPOOLLENGTH];
 
 // Struct to hold an entry from calories.csv
 
@@ -574,7 +581,7 @@ void* ProcessConnection(void *thread){
 
 	int is_connected = 1;
 
-	while(1){
+	while(keep_running){ // Was 1
 
 		printf("Thread %d grabbing Queued Item\n", (int)thread);
 
@@ -595,7 +602,7 @@ void* ProcessConnection(void *thread){
 
 			is_connected = 1;
 
-			while(is_connected) {
+			while(is_connected && keep_running) { //No keep_running previously
 			
 				// Check the first recieved message
 				if ((numbytes=recv(currentSocket, request, 1, 0)) == -1) {
@@ -658,7 +665,8 @@ void CreateThreadPool(pthread_t * threadPool){
 
 	for(i = 0; i < BACKLOG; i++){
 		
-		rc = pthread_create(&threadPool[i], NULL, ProcessConnection, (void *) i);
+		//rc = pthread_create(&threadPool[i], NULL, ProcessConnection, (void *) i);
+		rc = pthread_create(&threadPool[i], NULL, ProcessConnection, 0);
 		
 		if(rc){
 			// Error has occured in creating thread
@@ -697,16 +705,45 @@ void InitialiseCalarieEntries(){
 
 }
 
+
+
+// Handler for SIGINT
+void SIGINT_Handler(int s){
+
+	// Set keep_running to false
+	keep_running = FALSE;
+
+	// Close the socket
+	shutdown(sockfd, SHUT_RDWR);
+
+	// NOTE: pthread_join would not work correctly for us in this situation
+	// so we're using pthread_cancel instead. In our situation it shouldn't 
+	// impact the program in any meaningful way
+
+	// Join Threads
+	for (int i = 0; i < THREADPOOLLENGTH; i++){
+		pthread_cancel(threadPool[i]);
+	}
+
+	// Update the file
+
+	UpdateAndSaveFile();
+
+	
+}
+
+
+
+
 int main(int argc, char *argv[])
 {
-	int sockfd, new_fd, numbytes;  /* listen on sock_fd, new connection on new_fd */
+	int new_fd, numbytes;  /* listen on sock_fd, new connection on new_fd */
 	struct sockaddr_in my_addr;    /* my address information */
 	struct sockaddr_in their_addr; /* connector's address information */
 	socklen_t sin_size;
 	char searchTerm[SEARCHTERMLENGTH];
 
 	// Create PIDs for each of the threads
-	pthread_t threadPool[10];
 	CreateThreadPool(threadPool);
 	
 	// Initialize the locks
@@ -725,6 +762,25 @@ int main(int argc, char *argv[])
 	InitialiseCalarieEntries();
 	InitialiseQueue();
 
+
+	// Create a sigaction struct to handle SIGINT interrupt
+	struct sigaction sigIntHandler;
+
+	// Set the handler to our SIGINT_handler function
+	sigIntHandler.sa_handler = SIGINT_Handler;
+
+	// Set the Interrupt as off
+	sigemptyset(&sigIntHandler.sa_mask);
+
+	// Disbale any additional flags
+	sigIntHandler.sa_flags = 0;
+
+	// Redirect any SIGINT calls to our sigIntHandler
+	sigaction(SIGINT, &sigIntHandler, NULL);
+
+
+
+
 	/* generate the socket */
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		perror("socket");
@@ -736,8 +792,8 @@ int main(int argc, char *argv[])
 
 	// Check if a port has been specified by the user and if so, open on the default port
 	// otherwise, open with the specified one
-	if(argc == 2){
-		my_addr.sin_port = htons(atoi(argv[1]));     /* short, network byte order */
+	if(argc == 3){
+		my_addr.sin_port = htons(atoi(argv[2]));     /* short, network byte order */
 	}
 	else{
 		my_addr.sin_port = htons(MYPORT);     /* short, network byte order */
@@ -793,4 +849,6 @@ int main(int argc, char *argv[])
 		printf("Added to Queue\n");
 		sem_post(&q_full);
 	}
+
+	return 0;
 }
