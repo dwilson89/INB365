@@ -777,6 +777,10 @@ void SIGINT_Handler(int s){
 	// Set keep_running to false
 	keep_running = FALSE;
 
+	// Update the file
+
+	UpdateAndSaveFile();
+
 	// Close the socket
 	shutdown(sockfd, SHUT_RDWR);
 
@@ -788,11 +792,6 @@ void SIGINT_Handler(int s){
 	for (int i = 0; i < THREADPOOLLENGTH; i++){
 		pthread_cancel(threadPool[i]);
 	}
-
-	// Update the file
-
-	UpdateAndSaveFile();
-
 	
 }
 
