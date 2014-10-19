@@ -177,14 +177,11 @@ int AddToArray(struct CalorieEntry *newEntry, int numResults,  struct CalorieEnt
 	// Refill the entryArray
 	for (int i = 0; i < numResults-1; i++){
 		*entryArray[i] = *newArray[i];
-		printf("Added %s\n", newArray[i]->name);
-		printf("Entry Array Added %s\n", entryArray[i]->name);
 		free(newArray[i]);
 	}
 	
 	// Add the new entry
-	entryArray[numResults-1] = newEntry;
-	printf("new entry is %s\n", entryArray[numResults-1]->name);
+	*entryArray[numResults-1] = *newEntry;
 
 	// Return the number of results
 	return numResults;
@@ -291,6 +288,7 @@ void SearchForItem(int fd, char searchTerm[128]){
 				struct CalorieEntry temp = *calorieEntries[i];
 				// Send the result to the client
 				numResults = AddToArray(&temp, numResults, entryArray);
+
 				//send(fd, &temp, sizeof(temp), 0);
 				//printf("Sending item: %s\n", calorieEntries[i]->name);*/
 			}
@@ -317,9 +315,8 @@ void SearchForItem(int fd, char searchTerm[128]){
 	send(fd, numEntriesStruct, sizeof(struct CalorieEntry), 0);
 
 	for(int i = 0; i < numResults; i++){
-		printf("entryArray item: %s\n", entryArray[i]->name);
-		send(fd, entryArray[i], sizeof(struct CalorieEntry), 0);
 		printf("Sending item: %s\n", entryArray[i]->name);
+		send(fd, entryArray[i], sizeof(struct CalorieEntry), 0);
 	}
 
 	struct CalorieEntry endMessage;
@@ -859,8 +856,8 @@ int main(int argc, char *argv[])
 
 	// Check if a port has been specified by the user and if so, open on the default port
 	// otherwise, open with the specified one
-	if(argc == 3){
-		my_addr.sin_port = htons(atoi(argv[2]));     /* short, network byte order */
+	if(argc == 2){
+		my_addr.sin_port = htons(atoi(argv[1]));     /* short, network byte order */
 	}
 	else{
 		my_addr.sin_port = htons(MYPORT);     /* short, network byte order */
