@@ -174,9 +174,15 @@ int main(int argc, char *argv[])
 							//isSearchComplete = 1;
 							break;
 						}
+						else if(strstr(buf.name, "numResults")){
+							printf("%d Food Items Found\n\n", buf.weight);
+						}
+						else{
+							PrintFood(buf);
+						}
 						resultRetrieved = 1;
 						//printf("Buff name: %s\n",buf.name);
-						PrintFood(buf);
+						
 					} 
 
 					if(!resultRetrieved){ //&& (isSearchComplete == 1)){
