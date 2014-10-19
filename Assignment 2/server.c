@@ -152,8 +152,58 @@ int CompareNames(char searchTerm[128], char foodName[128], int numSpaces){
 
 }
 
+
+// Adds a calorie entry to the array and increases the array's size by 1
+//struct CalorieEntry (*entryArray)[numResults]
+
+int AddToArray(struct CalorieEntry *newEntry, int numResults,  struct CalorieEntry **entryArray){
+	
+	// Create temporary array
+	struct CalorieEntry *newArray[numResults];
+
+	// Populate Temp Array with the current contents of entryArray
+	for (int i = 0; i < numResults; i++){
+		newArray[i] = malloc(sizeof(struct CalorieEntry));
+		*newArray[i] = *entryArray[i];
+	}
+
+	// Increment number of results
+	numResults++;
+
+	// Resize entryArray to add new item and allocate memory for new item
+	entryArray = (struct CalorieEntry **)realloc(entryArray, numResults * sizeof(struct CalorieEntry*));
+	entryArray[numResults-1] = malloc(sizeof(struct CalorieEntry));
+
+	// Refill the entryArray
+	for (int i = 0; i < numResults-1; i++){
+		*entryArray[i] = *newArray[i];
+		printf("Added %s\n", newArray[i]->name);
+		printf("Entry Array Added %s\n", entryArray[i]->name);
+		free(newArray[i]);
+	}
+	
+	// Add the new entry
+	entryArray[numResults-1] = newEntry;
+	printf("new entry is %s\n", entryArray[numResults-1]->name);
+
+	// Return the number of results
+	return numResults;
+}
+
+
 // Searches for an item and sends results to client
 void SearchForItem(int fd, char searchTerm[128]){
+
+	// Initialise structure pointer that will hold the search results
+	struct CalorieEntry **entryArray = NULL;
+
+	// INitialise entryARray
+
+	entryArray = malloc(sizeof(struct entryArray*));
+	entryArray[0] = malloc(sizeof(struct CalorieEntry));
+
+
+	int numResults = 0;
 
 	// Get the number of words in the search term by counting the spaces
 	int searchSpaceCount = 0;
@@ -240,10 +290,12 @@ void SearchForItem(int fd, char searchTerm[128]){
 				strcpy(calorieEntries[i]->name, originalName);
 				struct CalorieEntry temp = *calorieEntries[i];
 				// Send the result to the client
-				send(fd, &temp, sizeof(temp), 0);
-				printf("Sending item: %s\n", calorieEntries[i]->name);
+				numResults = AddToArray(&temp, numResults, entryArray);
+				//send(fd, &temp, sizeof(temp), 0);
+				//printf("Sending item: %s\n", calorieEntries[i]->name);*/
 			}
 			strcpy(calorieEntries[i]->name, originalName);
+
 
 		}
 	}
@@ -254,6 +306,21 @@ void SearchForItem(int fd, char searchTerm[128]){
 	if(read_count == 0)
 		sem_post(&rw_mutex);
 	sem_post(&mutex);
+
+	// It is easier to send the number of entries found in a CalorieEntry structure
+	// than to create a new handler on the client to deal with different data types,
+	// so we create a structure that will hold the number of entries in it's weight
+	// variable as this is already an int
+	struct CalorieEntry *numEntriesStruct;
+	strcpy(numEntriesStruct->name, "numResults");
+	numEntriesStruct->weight = numResults;
+	send(fd, numEntriesStruct, sizeof(struct CalorieEntry), 0);
+
+	for(int i = 0; i < numResults; i++){
+		printf("entryArray item: %s\n", entryArray[i]->name);
+		send(fd, entryArray[i], sizeof(struct CalorieEntry), 0);
+		printf("Sending item: %s\n", entryArray[i]->name);
+	}
 
 	struct CalorieEntry endMessage;
 	strcpy(endMessage.name, "End Message");
